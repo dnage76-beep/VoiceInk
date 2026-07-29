@@ -115,11 +115,14 @@ class VoiceInkEngine: NSObject, ObservableObject {
     weak var recorderUIManager: RecorderPanelPresenting?
 
     let modelContext: ModelContext
-    internal let serviceRegistry: TranscriptionServiceRegistry
+    /// Shared with ModelPrewarmService so prewarming loads models into the
+    /// same service instances the dictation path uses.
+    let serviceRegistry: TranscriptionServiceRegistry
     let enhancementService: AIEnhancementService?
     let assistantSession = AssistantSession()
     let assistantChat: AssistantChatService?
     private let pipeline: TranscriptionPipeline
+    private var modelResidency: ModelResidencyController!
 
     let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "VoiceInkEngine")
 
@@ -158,6 +161,12 @@ class VoiceInkEngine: NSObject, ObservableObject {
         )
 
         super.init()
+
+        // Models stay loaded between dictations; this controller owns the
+        // decision to let them go.
+        self.modelResidency = ModelResidencyController { [weak self] in
+            await self?.releaseModelResources()
+        }
 
         setupNotifications()
         createRecordingsDirectoryIfNeeded()
@@ -241,6 +250,8 @@ class VoiceInkEngine: NSObject, ObservableObject {
 
                         let startID = UUID()
                         self.activeRecordingStartID = startID
+                        // Hold the loaded models for the duration of this dictation.
+                        self.modelResidency.noteActivityStarted()
                         let activeModeTask = ActiveWindowService.shared.beginApplyingConfiguration(modeId: modeId) {
                             [weak self] in
                             guard let self else { return false }
@@ -273,6 +284,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                                     self.recordingState = .idle
                                     self.activeRecordingStartID = nil
                                 }
+                                self.modelResidency.noteActivityFinished()
                                 return
                             }
 
@@ -284,6 +296,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                                 self.activeRecordingStartID == startID,
                                 !self.shouldCancelRecording
                             else {
+                                self.modelResidency.noteActivityFinished()
                                 return
                             }
 
@@ -445,11 +458,11 @@ class VoiceInkEngine: NSObject, ObservableObject {
         case .unavailable(let mode, let model), .available(let mode, let model):
             return (
                 String(
-                    format: String(localized: "'%@' is not available for the %@ mode"),
+                    format: String(localized: "'%@' is not downloaded yet, so the %@ mode can't transcribe"),
                     model.displayName,
                     mode.name
                 ),
-                String(localized: "Manage AI Models"),
+                String(localized: "Download Model"),
                 ModeSetupNavigator.openModelsSettings
             )
         }
@@ -777,13 +790,41 @@ class VoiceInkEngine: NSObject, ObservableObject {
         enhancementService?.clearCapturedContexts()
     }
 
+    /// Resets per-recording state and starts the idle countdown for the loaded
+    /// models. Models are deliberately NOT freed here: keeping them resident is
+    /// what makes the second and later dictations in a session fast.
     func cleanupResources() async {
-        logger.notice("cleanupResources: releasing model resources")
         activeRecordingStartID = nil
         activeRecordingUseCase = .newSession
+        modelResidency.noteActivityFinished()
+    }
+
+    /// Frees loaded transcription models. Driven by `ModelResidencyController`
+    /// (idle timeout, memory pressure) or called directly for teardown.
+    private func releaseModelResources() async {
+        logger.notice("releaseModelResources: releasing model resources")
         await whisperModelManager.cleanupResources()
         await serviceRegistry.cleanup()
-        logger.notice("cleanupResources: completed")
+        logger.notice("releaseModelResources: completed")
+    }
+
+    /// Immediately frees loaded models, for model switches and sleep. Deferred
+    /// if a dictation is in flight.
+    func releaseModelsNow(reason: String) async {
+        await modelResidency.releaseNow(reason: reason)
+    }
+
+    /// True while a dictation or prewarm holds the loaded models.
+    var isUsingModels: Bool { modelResidency.isActive }
+
+    /// Lets prewarming join the same residency bookkeeping as a dictation, so
+    /// prewarmed models are releasable and can't be freed mid-load.
+    func beginModelUse() {
+        modelResidency.noteActivityStarted()
+    }
+
+    func endModelUse() {
+        modelResidency.noteActivityFinished()
     }
 
     // MARK: - Notification Handling
@@ -795,6 +836,34 @@ class VoiceInkEngine: NSObject, ObservableObject {
             name: .promptDidChange,
             object: nil
         )
+
+        // A different model makes the resident one dead weight.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleModelChange),
+            name: .didChangeModel,
+            object: nil
+        )
+
+        // Don't hold ANE/whisper contexts across a sleep cycle.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleSystemWillSleep),
+            name: NSWorkspace.willSleepNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleModelChange() {
+        Task { @MainActor in
+            await releaseModelsNow(reason: "model changed")
+        }
+    }
+
+    @objc private func handleSystemWillSleep() {
+        Task { @MainActor in
+            await releaseModelsNow(reason: "system sleep")
+        }
     }
 
     @objc func handlePromptChange() {

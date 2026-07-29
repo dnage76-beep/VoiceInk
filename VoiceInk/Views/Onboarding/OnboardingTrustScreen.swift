@@ -3,6 +3,11 @@ import SwiftUI
 
 struct OnboardingTrustScreen: View {
     let contentMaxWidth: CGFloat
+    /// What the user actually chose, so this screen describes their setup
+    /// instead of the most flattering possible one.
+    let isTranscriptionLocal: Bool
+    let isEnhancementLocal: Bool
+    let isEnhancementConfigured: Bool
     let onBack: () -> Void
     let onContinue: () -> Void
 
@@ -15,7 +20,11 @@ struct OnboardingTrustScreen: View {
             showsHeader: false,
             contentYOffset: 0
         ) {
-            OnboardingTrustContent()
+            OnboardingTrustContent(
+                isTranscriptionLocal: isTranscriptionLocal,
+                isEnhancementLocal: isEnhancementLocal,
+                isEnhancementConfigured: isEnhancementConfigured
+            )
         } bottomBar: {
             OnboardingBottomBar(
                 leadingTitle: "Back",
@@ -29,22 +38,55 @@ struct OnboardingTrustScreen: View {
 }
 
 private struct OnboardingTrustContent: View {
+    let isTranscriptionLocal: Bool
+    let isEnhancementLocal: Bool
+    let isEnhancementConfigured: Bool
+
     var body: some View {
         ZStack {
-            TrustHeader()
+            TrustHeader(isFullyLocal: isFullyLocal)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.top, 52)
 
-            TrustBody()
+            TrustBody(summary: summary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .offset(y: 24)
         }
         .padding(.horizontal, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    private var isFullyLocal: Bool {
+        isTranscriptionLocal && (!isEnhancementConfigured || isEnhancementLocal)
+    }
+
+    /// States what this particular setup does, rather than what VoiceInk is
+    /// capable of doing.
+    private var summary: String {
+        switch (isTranscriptionLocal, isEnhancementConfigured, isEnhancementLocal) {
+        case (true, false, _):
+            return String(localized: "Your audio and your text stay on this Mac.")
+        case (true, true, true):
+            return String(localized: "Your audio and your text stay on this Mac.")
+        case (true, true, false):
+            return String(
+                localized:
+                    "Your audio is transcribed on this Mac. Only the finished text goes to your cleanup provider."
+            )
+        case (false, _, true):
+            return String(
+                localized: "Your audio goes to your transcription provider. Cleanup runs on this Mac.")
+        case (false, _, _):
+            return String(
+                localized: "Your audio goes to your transcription provider, and the text to your cleanup provider."
+            )
+        }
+    }
 }
 
 private struct TrustHeader: View {
+    let isFullyLocal: Bool
+
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "lock.shield")
@@ -56,7 +98,7 @@ private struct TrustHeader: View {
                         .fill(AppTheme.Surface.controlActive)
                 )
 
-            Text("VoiceInk is private by default")
+            Text(isFullyLocal ? "Everything stays on this Mac" : "Here is where your words go")
                 .font(.system(size: 32, weight: .bold))
                 .foregroundColor(AppTheme.Text.primary)
                 .multilineTextAlignment(.center)
@@ -67,6 +109,8 @@ private struct TrustHeader: View {
 }
 
 private struct TrustBody: View {
+    let summary: String
+
     var body: some View {
         VStack(spacing: 0) {
             TrustMapView()
@@ -74,7 +118,7 @@ private struct TrustBody: View {
                 .padding(.bottom, 28)
 
             VStack(spacing: 10) {
-                Text("Your data never has to leave your device.")
+                Text(summary)
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(AppTheme.Text.primary)
                     .multilineTextAlignment(.center)

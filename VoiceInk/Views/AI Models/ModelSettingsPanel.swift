@@ -86,8 +86,10 @@ private struct TranscriptionModelSettingsView: View {
 private struct EnhancementModelSettingsView: View {
     @AppStorage("SkipShortEnhancement") private var isSkipShortEnhancementEnabled = true
     @AppStorage("ShortEnhancementWordThreshold") private var shortEnhancementWordThreshold = 3
-    @AppStorage("EnhancementTimeoutSeconds") private var enhancementTimeoutSeconds = 7
-    @AppStorage("EnhancementRetryOnTimeout") private var retryOnTimeout = true
+    // Fallbacks match AppDefaults so the controls never show a value the
+    // enhancement service isn't actually using.
+    @AppStorage("EnhancementTimeoutSeconds") private var enhancementTimeoutSeconds = 20
+    @AppStorage("EnhancementRetryOnTimeout") private var retryOnTimeout = false
     @State private var isShortEnhancementExpanded = false
 
     var body: some View {

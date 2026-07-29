@@ -201,8 +201,10 @@ struct ModeConfigFormView: View {
                 )
 
                 Picker("Model", selection: modelBinding) {
+                    // A placeholder prompting a choice, not a state the user
+                    // can pick. It disappears once a model is selected.
                     if draft.selectedTranscriptionModelName == nil {
-                        Label("Unavailable", systemImage: "waveform")
+                        Label("Choose a model", systemImage: "waveform")
                             .tag(nil as String?)
                     }
 

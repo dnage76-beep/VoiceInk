@@ -37,6 +37,28 @@ final class OnboardingFlowController {
         coordinator.storedStage = OnboardingStage.api.rawValue
     }
 
+    /// Point enhancement at the local Claude CLI and move on. Mirrors what
+    /// FreshInstallDefaults does at completion, but here the user has seen and
+    /// confirmed it rather than having it applied silently afterwards.
+    func useClaudeCLIAndContinue(
+        isTranscriptionSetupReady: Bool,
+        aiService: AIService,
+        enhancementService: AIEnhancementService
+    ) {
+        aiService.loadLocalCLITemplate(.claude)
+        aiService.updateLocalCLITimeoutSeconds(AppDefaults.enhancementTimeoutSeconds)
+        aiService.selectedProvider = .localCLI
+        // Derived from the configured command, not assumed: loadLocalCLITemplate
+        // sets isAPIKeyValid from the CLI service's own state.
+        coordinator.isSelectedAPIProviderVerified = aiService.isAPIKeyValid
+        coordinator.hasSkippedAPISetup = !aiService.isAPIKeyValid
+
+        goToExperienceStep(
+            isTranscriptionSetupReady: isTranscriptionSetupReady,
+            enhancementService: enhancementService
+        )
+    }
+
     func goBackToModelStep() {
         guard coordinator.requiredPermissionsGranted else {
             goToPermissionsStep()
@@ -359,7 +381,15 @@ final class OnboardingFlowController {
         onComplete()
     }
 
-    func refreshAPIVerification() {
+    /// Recomputes verification from the stored API key. The onboarding
+    /// provider list is cloud-only, so this must not run when the user chose
+    /// the local Claude CLI: it would find no key and undo their choice,
+    /// bouncing them back to the API step.
+    func refreshAPIVerification(aiService: AIService? = nil) {
+        if let aiService, aiService.selectedProvider == .localCLI {
+            return
+        }
+
         coordinator.isSelectedAPIProviderVerified = APIKeyManager.shared.hasAPIKey(
             forProvider: coordinator.selectedOnboardingProvider.rawValue
         )

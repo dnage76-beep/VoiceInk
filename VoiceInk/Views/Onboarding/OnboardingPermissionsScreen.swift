@@ -36,13 +36,13 @@ struct OnboardingPermissionsScreen: View {
         VStack(spacing: 10) {
             ForEach(OnboardingPermissionKind.allCases) { permission in
                 PermissionStepRow(
+                    kind: permission,
                     stepNumber: stepNumber(permission),
                     descriptor: permission.descriptor,
                     status: status(permission),
                     isActive: !isComplete && activePermission == permission,
                     isLocked: isLocked(permission),
-                    showsRestartHint: permission == .screenRecording && hasRequestedScreenRecording
-                        && !status(.screenRecording).isGranted,
+                    showsRestartHint: showsRestartHint(for: permission),
                     actionTitle: actionTitle(permission),
                     onSelect: {
                         guard !isLocked(permission) else { return }
@@ -54,6 +54,20 @@ struct OnboardingPermissionsScreen: View {
                     onQuit: onQuit
                 )
             }
+        }
+    }
+
+    private func showsRestartHint(for permission: OnboardingPermissionKind) -> Bool {
+        switch permission {
+        case .screenRecording:
+            // Prompted but not yet granted: the restart is what applies it.
+            return hasRequestedScreenRecording && !status(.screenRecording).isGranted
+        case .accessibility:
+            // Granted but not yet picked up: without a relaunch the hotkey
+            // records and then types nothing.
+            return status(.accessibility).isGranted
+        case .microphone:
+            return false
         }
     }
 }

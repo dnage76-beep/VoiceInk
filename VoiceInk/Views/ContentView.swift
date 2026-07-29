@@ -57,15 +57,19 @@ struct ContentView: View {
         }
         .frame(width: AppWindowLayout.width)
         .frame(minHeight: AppWindowLayout.minimumHeight)
+        // Routine lifecycle: debug level, so it isn't retained in the system
+        // log for every window show and hide. The window-diagnostic notices in
+        // MenuBarView stay at notice, they are the ones worth having after the
+        // fact.
         .onAppear {
-            logger.notice("ContentView appeared")
+            logger.debug("ContentView appeared")
         }
         .onDisappear {
-            logger.notice("ContentView disappeared")
+            logger.debug("ContentView disappeared")
         }
         .onReceive(NotificationCenter.default.publisher(for: .navigateToDestination)) { notification in
             if let destination = notification.userInfo?["destination"] as? String {
-                logger.notice("navigateToDestination received: \(destination, privacy: .public)")
+                logger.debug("navigateToDestination received: \(destination, privacy: .public)")
                 navigation.navigate(to: destination)
             }
         }

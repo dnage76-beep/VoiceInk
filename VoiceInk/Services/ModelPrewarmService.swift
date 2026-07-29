@@ -6,24 +6,19 @@ import os
 @MainActor
 final class ModelPrewarmService: ObservableObject {
     private let transcriptionModelManager: TranscriptionModelManager
-    private let whisperModelManager: WhisperModelManager
-    private let modelContext: ModelContext
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "ModelPrewarm")
-    private lazy var serviceRegistry = TranscriptionServiceRegistry(
-        modelProvider: whisperModelManager,
-        modelsDirectory: whisperModelManager.modelsDirectory,
-        modelContext: modelContext
-    )
+    /// The engine, so prewarming loads models into the same services the
+    /// dictation path uses and takes part in the same residency bookkeeping.
+    private weak var engine: VoiceInkEngine?
     private let prewarmAudioURL = Bundle.main.url(forResource: "sound7", withExtension: "wav")
     private let prewarmEnabledKey = "PrewarmModelOnWake"
 
     init(
-        transcriptionModelManager: TranscriptionModelManager, whisperModelManager: WhisperModelManager,
-        modelContext: ModelContext
+        transcriptionModelManager: TranscriptionModelManager,
+        engine: VoiceInkEngine
     ) {
         self.transcriptionModelManager = transcriptionModelManager
-        self.whisperModelManager = whisperModelManager
-        self.modelContext = modelContext
+        self.engine = engine
         setupNotifications()
         schedulePrewarmOnAppLaunch()
     }
@@ -69,6 +64,16 @@ final class ModelPrewarmService: ObservableObject {
     private func performPrewarm() async {
         guard shouldPrewarm() else { return }
 
+        guard let engine else { return }
+
+        // A dictation already has the models checked out. Prewarming on top of
+        // it would race the same FluidAudio instance, and there is nothing to
+        // warm up anyway.
+        guard !engine.isUsingModels else {
+            logger.notice("Skipping prewarm, a dictation is already using the models")
+            return
+        }
+
         guard let audioURL = prewarmAudioURL else {
             logger.error("❌ Prewarm audio file (sound7.wav) not found")
             return
@@ -87,8 +92,14 @@ final class ModelPrewarmService: ObservableObject {
         logger.notice("Prewarming \(currentModel.displayName, privacy: .public)")
         let startTime = Date()
 
+        // Holds the models for the duration of the warm-up, so a release
+        // triggered meanwhile waits instead of tearing down a half-built
+        // manager, and marks them resident so they can be released later.
+        engine.beginModelUse()
+        defer { engine.endModelUse() }
+
         do {
-            let _ = try await serviceRegistry.transcribe(
+            let _ = try await engine.serviceRegistry.transcribe(
                 audioURL: audioURL,
                 model: currentModel,
                 context: transcriptionConfiguration.requestContext

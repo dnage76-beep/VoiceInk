@@ -261,26 +261,6 @@ struct DashboardContent: View {
         !hasLoadedStatsSnapshot || statsSummary.totalCount < Self.automaticStatsRefreshMetricLimit
     }
 
-    private var insightsActionTitle: LocalizedStringKey {
-        canViewInsights ? "View Insights" : "Insights Locked"
-    }
-
-    private var insightsActionIcon: String {
-        canViewInsights ? "chart.line.uptrend.xyaxis" : "lock.fill"
-    }
-
-    private var insightsActionHelp: String {
-        if canViewInsights {
-            return String(localized: "View dashboard insights")
-        }
-
-        return String(localized: "Continue using VoiceInk to unlock these stats.")
-    }
-
-    private var insightsActionAccessibilityLabel: String {
-        canViewInsights ? "View insights" : "Insights locked"
-    }
-
     private var accessibilityReminder: some View {
         DashboardAccessibilityReminder(onOpenSettings: openAccessibilitySettings)
     }
@@ -548,17 +528,8 @@ struct DashboardContent: View {
 
     private var heroSection: some View {
         DashboardHeroCard(
-            isLocked: shouldShowLockedInsightsState,
-            headline: momentumHeadline,
-            subtext: momentumSubtext,
-            actionTitle: insightsActionTitle,
-            actionIcon: insightsActionIcon,
-            canViewInsights: canViewInsights,
-            actionHelp: insightsActionHelp,
-            actionAccessibilityLabel: insightsActionAccessibilityLabel,
             unlockProgress: insightsUnlockProgress,
-            unlockMinutesRemaining: insightsUnlockMinutesRemaining,
-            onViewInsights: openInsightsIfAvailable
+            unlockMinutesRemaining: insightsUnlockMinutesRemaining
         )
     }
 
@@ -725,21 +696,6 @@ struct DashboardContent: View {
         }
     }
 
-    private var greetingEmoji: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-
-        switch hour {
-        case 5..<12:
-            return "☀️"
-        case 12..<17:
-            return "👋"
-        case 17..<24:
-            return "🌙"
-        default:
-            return "👋"
-        }
-    }
-
     private var headerSubtitle: String {
         guard hasLoadedStatsSnapshot else {
             return String(localized: "Adding up your dictation.")
@@ -758,30 +714,6 @@ struct DashboardContent: View {
         }
 
         return String(localized: "Quiet week so far. Say something.")
-    }
-
-    private var momentumHeadline: DashboardHeroHeadline {
-        guard hasLoadedStatsSnapshot else {
-            return .calculatingProgress
-        }
-
-        guard statsSummary.totalCount > 0 else {
-            return .startRecordingProgress
-        }
-
-        return .savedTime(formattedAllTimeSaved)
-    }
-
-    private var momentumSubtext: String {
-        guard hasLoadedStatsSnapshot else {
-            return String(localized: "Your word count and benchmark will appear here.")
-        }
-
-        guard statsSummary.totalCount > 0 else {
-            return String(localized: "Your first milestone appears after one session.")
-        }
-
-        return formattedProgressBenchmarkText
     }
 
     // MARK: - Computed Metrics

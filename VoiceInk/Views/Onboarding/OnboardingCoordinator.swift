@@ -55,6 +55,33 @@ final class OnboardingCoordinator: ObservableObject {
     @Published var permissionStatuses: [OnboardingPermissionKind: OnboardingPermissionStatus] = [:]
     @Published var isSelectedTranscriptionProviderVerified = false
     @Published var isSelectedAPIProviderVerified = false
+    /// Set once the `claude` binary is found on PATH. When it is, cleanup can
+    /// run on the existing Claude subscription and the API key step has
+    /// nothing to ask for.
+    @Published var isClaudeCLIAvailable = false
+    /// True when the user chose a different provider despite the CLI being
+    /// available, which sends them to the normal API key step.
+    @Published var hasDeclinedClaudeCLI = false
+
+    /// Runs before the API step is reached so the flow can skip asking for a
+    /// key that isn't needed. If the user is already standing on the API step
+    /// when detection finishes, the result is ignored for this run: swapping
+    /// the screen out mid-typing would discard what they were entering.
+    func detectClaudeCLI() async {
+        let available = await FreshInstallDefaults.isClaudeCLIAvailable()
+        guard stage != .api else { return }
+        isClaudeCLIAvailable = available
+    }
+
+    /// Whether cleanup will actually run, for either a cloud key or the local
+    /// CLI. The onboarding provider list is cloud-only, so the verified flag
+    /// alone does not cover the CLI case.
+    func isEnhancementConfigured(aiService: AIService) -> Bool {
+        if aiService.selectedProvider == .localCLI {
+            return aiService.isAPIKeyValid
+        }
+        return isSelectedAPIProviderVerified
+    }
     @Published var isShowingSkipAPISetupWarning = false
     @Published var hasExperienceModeShortcut = false
     @Published var isExperienceModeInstalled = false

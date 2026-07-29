@@ -59,9 +59,10 @@ struct AIEnhancementSettingsView: View {
                 Text("Model")
                     .font(.system(size: 13, weight: .medium))
 
-                Text(aiService.currentModel)
+                Text(modelRowSubtitle)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer()
@@ -74,6 +75,24 @@ struct AIEnhancementSettingsView: View {
             .labelsHidden()
             .pickerStyle(.menu)
             .fixedSize()
+        }
+    }
+
+    /// Says up front that this picker rewrites modes, since it does so
+    /// silently the moment the selection changes.
+    private var modelRowSubtitle: String {
+        let affected = modesOnCurrentProvider.count
+        guard affected > 0 else { return aiService.currentModel }
+        return String(
+            format: String(localized: "%1$@. Changing this also changes %2$d modes on this provider."),
+            aiService.currentModel,
+            affected
+        )
+    }
+
+    private var modesOnCurrentProvider: [ModeConfig] {
+        modeManager.configurations.filter {
+            $0.isAIEnhancementEnabled && $0.selectedAIProvider == aiService.selectedProvider.rawValue
         }
     }
 

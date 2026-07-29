@@ -69,9 +69,11 @@ enum FreshInstallDefaults {
         Task { @MainActor in
             let claudeAvailable = await Self.isClaudeCLIAvailable()
 
+            // Onboarding normally sets this up on the Claude Code step; this
+            // is the fallback for a skipped or interrupted onboarding.
             if claudeAvailable, !hasWorkingProvider(aiService) {
                 aiService.loadLocalCLITemplate(.claude)
-                aiService.updateLocalCLITimeoutSeconds(20)
+                aiService.updateLocalCLITimeoutSeconds(AppDefaults.enhancementTimeoutSeconds)
                 aiService.selectedProvider = .localCLI
             }
 
@@ -95,7 +97,7 @@ enum FreshInstallDefaults {
     }
 
     /// Same login shell LocalCLIService uses, so detection matches runtime.
-    private static func isClaudeCLIAvailable() async -> Bool {
+    static func isClaudeCLIAvailable() async -> Bool {
         await Task.detached(priority: .utility) {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")

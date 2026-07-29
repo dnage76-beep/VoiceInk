@@ -26,11 +26,19 @@ class AIEnhancementService: ObservableObject {
     private let customVocabularyService: CustomVocabularyService
     private var baseTimeout: TimeInterval {
         let stored = UserDefaults.standard.integer(forKey: "EnhancementTimeoutSeconds")
-        return stored > 0 ? TimeInterval(stored) : 7
+        return stored > 0 ? TimeInterval(stored) : AppDefaults.enhancementTimeoutSeconds
     }
     private let rateLimitInterval: TimeInterval = 1.0
     private var lastRequestTime: Date?
     private let modelContext: ModelContext
+
+    /// Per provider and model: when set, that endpoint had nothing listening,
+    /// so enhancement is skipped until the time passes and the dictation is
+    /// delivered as raw text immediately instead of waiting out the timeout
+    /// again on every utterance. Keyed so a downed local bridge doesn't
+    /// suppress a healthy cloud provider, or the reverse.
+    private var providerUnreachableUntil: [String: Date] = [:]
+    private let providerUnreachableBackoff: TimeInterval = 60
 
     @Published var lastCapturedClipboard: String?
 
@@ -86,6 +94,26 @@ class AIEnhancementService: ObservableObject {
         }
 
         return APIKeyManager.shared.hasAPIKey(forProvider: provider.rawValue)
+    }
+
+    /// Whether the request goes to a service on this machine. Local providers
+    /// have no upstream quota, so the spacing meant to protect cloud API
+    /// budgets only adds latency to a dictation.
+    private func isLocalProvider(_ provider: AIProvider, modelName: String) -> Bool {
+        switch provider {
+        case .ollama, .localCLI:
+            return true
+        case .custom:
+            guard
+                let configuration = CustomAIProviderManager.shared.requestConfiguration(forModel: modelName),
+                let host = URL(string: configuration.baseURL)?.host
+            else {
+                return false
+            }
+            return host == "localhost" || host == "127.0.0.1" || host == "::1"
+        default:
+            return false
+        }
     }
 
     private func waitForRateLimit() async throws {
@@ -247,7 +275,9 @@ class AIEnhancementService: ObservableObject {
             }
         }
 
-        try await waitForRateLimit()
+        if !isLocalProvider(provider, modelName: modelName) {
+            try await waitForRateLimit()
+        }
 
         do {
             let result: String
@@ -352,12 +382,32 @@ class AIEnhancementService: ObservableObject {
         case .timeout:
             return .timeout
         case .invalidURL, .decodingError, .encodingError:
-            return .customError(error.localizedDescription ?? "An unknown error occurred.")
+            return .customError(error.localizedDescription)
         }
     }
 
     private var retryOnTimeout: Bool {
         UserDefaults.standard.bool(forKey: "EnhancementRetryOnTimeout")
+    }
+
+    /// True only when nothing is listening at the endpoint. A timeout, a
+    /// dropped connection, or an offline interface are all transient and get
+    /// the normal retry path: tripping the breaker on those would silently
+    /// disable enhancement for a minute over a few seconds of bad Wi-Fi.
+    private func isUnreachableError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        guard nsError.domain == NSURLErrorDomain else { return false }
+        return [
+            NSURLErrorCannotConnectToHost,
+            NSURLErrorCannotFindHost,
+        ].contains(nsError.code)
+    }
+
+    /// Identifies the endpoint a request goes to, for the breaker.
+    private func providerKey(for configuration: EnhancementRuntimeConfiguration) -> String {
+        let provider = configuration.provider?.rawValue ?? "unconfigured"
+        let model = configuration.modelName ?? configuration.provider?.defaultModel ?? ""
+        return "\(provider)|\(model)"
     }
 
     private func makeRequestWithRetry(
@@ -443,6 +493,15 @@ class AIEnhancementService: ObservableObject {
         let startTime = Date()
         let promptName = configuration.prompt?.title
 
+        let breakerKey = providerKey(for: configuration)
+        if let unreachableUntil = providerUnreachableUntil[breakerKey] {
+            if Date() < unreachableUntil {
+                logger.notice("Skipping enhancement: provider unreachable, delivering raw transcript")
+                throw EnhancementError.networkError
+            }
+            providerUnreachableUntil[breakerKey] = nil
+        }
+
         do {
             let result = try await makeRequestWithRetry(
                 text: text,
@@ -451,8 +510,15 @@ class AIEnhancementService: ObservableObject {
             )
             let endTime = Date()
             let duration = endTime.timeIntervalSince(startTime)
+            providerUnreachableUntil[breakerKey] = nil
             return (result, duration, promptName)
         } catch {
+            if isUnreachableError(error) {
+                providerUnreachableUntil[breakerKey] = Date().addingTimeInterval(providerUnreachableBackoff)
+                logger.notice(
+                    "Provider unreachable, pausing enhancement for \(self.providerUnreachableBackoff, privacy: .public)s"
+                )
+            }
             let errorDescription = EnhancementFailureFormatter.description(for: error)
             let providerName = configuration.provider?.rawValue ?? "Unconfigured"
             let modelName = configuration.modelName ?? configuration.provider?.defaultModel ?? "Unconfigured"
@@ -469,7 +535,9 @@ class AIEnhancementService: ObservableObject {
             return
         }
 
-        if let capturedText = await screenCaptureService.captureAndExtractText() {
+        // The text itself is held by screenCaptureService.lastCapturedText;
+        // this only needs to know whether there is something new to publish.
+        if await screenCaptureService.captureAndExtractText() != nil {
             await MainActor.run {
                 self.objectWillChange.send()
             }

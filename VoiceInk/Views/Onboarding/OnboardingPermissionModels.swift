@@ -136,7 +136,9 @@ enum OnboardingPermissionKind: String, CaseIterable, Identifiable {
             return OnboardingPermissionDescriptor(
                 title: String(localized: "Screen Recording"),
                 subtitle: String(
-                    localized: "VoiceInk reads visible screen content to improve the accuracy of transcripts.")
+                    localized:
+                        "Optional. While you dictate, VoiceInk reads the text in the window you are working in, so names and terms on screen come out spelled right. That text goes to your cleanup provider with the transcript. No screenshot is ever saved, and you can skip this."
+                )
             )
         }
     }

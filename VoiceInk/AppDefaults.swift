@@ -13,6 +13,10 @@ enum RecorderDisplaySettingsKeys {
 }
 
 enum AppDefaults {
+    /// Shared so the enhancement service, the assistant, and the settings
+    /// controls can't drift to different fallbacks for the same key.
+    static let enhancementTimeoutSeconds: TimeInterval = 20
+
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [
             // Onboarding & General
@@ -60,7 +64,7 @@ enum AppDefaults {
             // instantly; give a CLI provider enough time before giving up.
             "SkipShortEnhancement": true,
             "ShortEnhancementWordThreshold": 6,
-            "EnhancementTimeoutSeconds": 20,
+            "EnhancementTimeoutSeconds": Int(enhancementTimeoutSeconds),
             "EnhancementRetryOnTimeout": false,
 
             // Model

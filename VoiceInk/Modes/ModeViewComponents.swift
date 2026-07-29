@@ -101,6 +101,23 @@ struct ConfigurationRow: View {
     private struct TranscriptionModelMetadata {
         let label: String
         let isWarning: Bool
+        /// Where the user goes to resolve the warning. Nil when nothing is
+        /// wrong, or when the fix is to edit the mode itself.
+        var fixDestination: FixDestination?
+
+        enum FixDestination {
+            case models
+            case mode
+
+            var hint: String {
+                switch self {
+                case .models:
+                    return String(localized: "Open AI Models to download or pick another model.")
+                case .mode:
+                    return String(localized: "Edit this mode to choose a transcription model.")
+                }
+            }
+        }
     }
 
     @Binding var config: ModeConfig
@@ -130,10 +147,31 @@ struct ConfigurationRow: View {
                 label: model.displayName,
                 isWarning: false
             )
-        case .noMode, .noSelection, .modelNotFound, .unavailable:
+        // Each of these needs a different fix, so each says which one it is
+        // rather than collapsing into an unexplained "Unavailable".
+        case .noSelection:
             return TranscriptionModelMetadata(
-                label: String(localized: "Unavailable"),
-                isWarning: true
+                label: String(localized: "No model selected"),
+                isWarning: true,
+                fixDestination: .mode
+            )
+        case .modelNotFound:
+            return TranscriptionModelMetadata(
+                label: String(localized: "Model removed"),
+                isWarning: true,
+                fixDestination: .models
+            )
+        case .unavailable(_, let model):
+            return TranscriptionModelMetadata(
+                label: String(localized: "\(model.displayName): not downloaded"),
+                isWarning: true,
+                fixDestination: .models
+            )
+        case .noMode:
+            return TranscriptionModelMetadata(
+                label: String(localized: "No mode selected"),
+                isWarning: true,
+                fixDestination: .mode
             )
         }
     }
@@ -278,8 +316,8 @@ struct ConfigurationRow: View {
 
             HStack(spacing: 8) {
                 let modelMetadata = transcriptionModelMetadata
-                HStack(spacing: 4) {
-                    Image(systemName: "waveform")
+                let modelBadge = HStack(spacing: 4) {
+                    Image(systemName: modelMetadata.isWarning ? "exclamationmark.triangle.fill" : "waveform")
                         .font(.system(size: 10))
                     Text(modelMetadata.label)
                         .font(.caption)
@@ -301,6 +339,25 @@ struct ConfigurationRow: View {
                             lineWidth: 0.5
                         )
                 )
+
+                // A warning badge is a way out, not just a label.
+                if let destination = modelMetadata.fixDestination {
+                    Button {
+                        switch destination {
+                        case .models:
+                            ModeSetupNavigator.openModelsSettings()
+                        case .mode:
+                            onEditConfig(config)
+                        }
+                    } label: {
+                        modelBadge
+                    }
+                    .buttonStyle(.plain)
+                    .help(destination.hint)
+                    .accessibilityLabel(Text("\(modelMetadata.label). \(destination.hint)"))
+                } else {
+                    modelBadge
+                }
 
                 if let language = selectedLanguage, language != "Default" {
                     HStack(spacing: 4) {

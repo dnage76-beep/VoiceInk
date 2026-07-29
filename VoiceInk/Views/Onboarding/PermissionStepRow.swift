@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct PermissionStepRow: View {
+    let kind: OnboardingPermissionKind
     let stepNumber: Int
     let descriptor: OnboardingPermissionDescriptor
     let status: OnboardingPermissionStatus
@@ -112,7 +113,7 @@ struct PermissionStepRow: View {
 
     private var restartHint: some View {
         HStack(spacing: 8) {
-            Text("Restart VoiceInk after enabling Screen Recording.")
+            Text(restartHintText)
                 .font(.system(size: 12))
                 .foregroundColor(AppTheme.Text.muted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -123,6 +124,21 @@ struct PermissionStepRow: View {
             .font(.system(size: 12, weight: .semibold))
             .buttonStyle(.plain)
             .foregroundColor(AppTheme.Action.secondaryForeground)
+        }
+    }
+
+    private var restartHintText: String {
+        switch kind {
+        case .accessibility:
+            // Without the relaunch the app looks broken: recording works but
+            // nothing is ever typed.
+            return String(
+                localized: "Quit and reopen VoiceInk after enabling Accessibility, or typing into apps won't work yet."
+            )
+        case .screenRecording:
+            return String(localized: "Restart VoiceInk after enabling Screen Recording.")
+        case .microphone:
+            return String(localized: "Restart VoiceInk after changing this permission.")
         }
     }
 }

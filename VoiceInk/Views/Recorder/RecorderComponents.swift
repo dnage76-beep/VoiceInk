@@ -177,6 +177,7 @@ struct RecorderCloseButton: View {
         }
         .buttonStyle(.plain)
         .help("Close")
+        .accessibilityLabel(Text("Close recorder"))
     }
 }
 
@@ -282,6 +283,19 @@ struct RecorderModeButton: View {
                     syncPopoverVisibility()
                 }
         }
+        // The icon changes with the active mode, so the label has to name it.
+        .help(modeButtonDescription)
+        .accessibilityLabel(Text(modeButtonDescription))
+    }
+
+    private var modeButtonDescription: String {
+        guard !modeManager.enabledConfigurations.isEmpty else {
+            return String(localized: "No modes enabled")
+        }
+        guard let current = modeManager.currentEffectiveConfiguration else {
+            return String(localized: "Switch mode")
+        }
+        return String(format: String(localized: "Mode: %@. Switch mode."), current.name)
     }
 
     private func syncPopoverVisibility() {
@@ -488,6 +502,7 @@ struct AssistantPanelView: View {
             .buttonStyle(.plain)
             .disabled(!canSendDraft)
             .help("Send follow up")
+            .accessibilityLabel(Text("Send follow up"))
         }
     }
 

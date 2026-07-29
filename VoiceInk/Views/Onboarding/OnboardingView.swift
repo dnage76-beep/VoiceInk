@@ -83,6 +83,22 @@ struct OnboardingView: View {
                         }
                     )
                     .transition(.opacity)
+                case .api where coordinator.isClaudeCLIAvailable && !coordinator.hasDeclinedClaudeCLI:
+                    OnboardingClaudeCLIScreen(
+                        contentMaxWidth: contentMaxWidth,
+                        onBack: coordinator.flow.goBackToModelStep,
+                        onContinue: {
+                            coordinator.flow.useClaudeCLIAndContinue(
+                                isTranscriptionSetupReady: isTranscriptionSetupReady,
+                                aiService: aiService,
+                                enhancementService: enhancementService
+                            )
+                        },
+                        onUseAnotherProvider: {
+                            coordinator.hasDeclinedClaudeCLI = true
+                        }
+                    )
+                    .transition(.opacity)
                 case .api:
                     OnboardingAPIScreen(
                         aiService: aiService,
@@ -94,7 +110,7 @@ struct OnboardingView: View {
                             isTranscriptionSetupReady: isTranscriptionSetupReady
                         ),
                         isShowingSkipWarning: $coordinator.isShowingSkipAPISetupWarning,
-                        onVerificationChanged: coordinator.flow.refreshAPIVerification,
+                        onVerificationChanged: { coordinator.flow.refreshAPIVerification(aiService: aiService) },
                         onBack: coordinator.flow.goBackToModelStep,
                         onContinue: {
                             coordinator.flow.goToExperienceStep(
@@ -166,6 +182,12 @@ struct OnboardingView: View {
                 case .trust:
                     OnboardingTrustScreen(
                         contentMaxWidth: contentMaxWidth,
+                        isTranscriptionLocal: coordinator.transcriptionSetupKind == .local,
+                        // Ollama runs the model on this Mac. The Claude CLI
+                        // runs locally but sends the transcript to Anthropic,
+                        // so it is not local for this purpose.
+                        isEnhancementLocal: aiService.selectedProvider == .ollama,
+                        isEnhancementConfigured: coordinator.isEnhancementConfigured(aiService: aiService),
                         onBack: {
                             coordinator.flow.goToPreviousTrustStep(
                                 isTranscriptionSetupReady: isTranscriptionSetupReady,
@@ -255,7 +277,7 @@ struct OnboardingView: View {
             coordinator.flow.refreshTranscriptionSetupVerification()
             coordinator.flow.ensureDefaultOnboardingProvider()
             coordinator.permissions.refreshPermissionStatuses()
-            coordinator.flow.refreshAPIVerification()
+            coordinator.flow.refreshAPIVerification(aiService: aiService)
             coordinator.flow.refreshExperienceModeState(enhancementService: enhancementService)
             let refreshedTranscriptionSetupReady = coordinator.isTranscriptionSetupReady(
                 isTranscriptionModelDownloaded: isTranscriptionModelDownloaded
@@ -264,6 +286,11 @@ struct OnboardingView: View {
                 isTranscriptionSetupReady: refreshedTranscriptionSetupReady,
                 enhancementService: enhancementService
             )
+        }
+        .task {
+            // Runs well before the API step, so that step already knows
+            // whether it has anything to ask for.
+            await coordinator.detectClaudeCLI()
         }
         .onDisappear {
             coordinator.permissions.cancelRefreshTask()
@@ -280,7 +307,7 @@ struct OnboardingView: View {
             )
         }
         .onReceive(NotificationCenter.default.publisher(for: .aiProviderKeyChanged)) { _ in
-            coordinator.flow.refreshAPIVerification()
+            coordinator.flow.refreshAPIVerification(aiService: aiService)
             coordinator.flow.refreshTranscriptionSetupVerification()
         }
         .onReceive(NotificationCenter.default.publisher(for: ShortcutStore.shortcutDidChange)) { notification in
