@@ -64,6 +64,8 @@ struct AudioFileRow: View {
                     .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
+            .help("Remove from queue")
+            .accessibilityLabel(Text("Remove from queue"))
         }
     }
 
@@ -208,6 +210,8 @@ struct AudioFileRow: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
+            .help("Retry transcription")
+            .accessibilityLabel(Text("Retry transcription"))
         }
     }
 

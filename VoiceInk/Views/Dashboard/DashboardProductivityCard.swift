@@ -50,46 +50,171 @@ struct DashboardProductivityCard: View {
 }
 struct DashboardProductivitySummaryStrip: View {
     let summary: DashboardTimeSavedSummary
+    var wordsPerMinute: Int?
+    var dayStreak: Int = 0
+    var longestDayStreak: Int = 0
+    var enhancedCount: Int = 0
+    /// True on the session's first dashboard appearance: cells fade in with a
+    /// short stagger and numerals count up. Later visits render settled.
+    var playsEntrance: Bool = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            metricCell(
-                title: "Time saved",
-                value: summary.hasData ? Formatters.formattedSavedTime(summary.timeSaved) : "--",
-                systemName: "clock"
-            )
-            metricCell(
-                title: "Words dictated",
-                value: summary.hasData ? Formatters.formattedCompactNumber(summary.wordCount) : "--",
-                systemName: "list.bullet.rectangle"
-            )
-            metricCell(
-                title: "Sessions",
-                value: summary.hasData ? Formatters.formattedCompactNumber(summary.sessionCount) : "--",
-                systemName: "mic"
-            )
+        // Two rows of three rather than one row of six: at six across, the
+        // numerals shrink below the point where they read as the headline.
+        VStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                DashboardStatCell(
+                    order: 0,
+                    playsEntrance: playsEntrance,
+                    icon: "clock",
+                    title: "Time saved",
+                    detail: String(localized: "vs typing at 40 wpm"),
+                    value: summary.hasData ? summary.timeSaved : nil,
+                    format: { Formatters.formattedSavedTime($0) }
+                )
+                DashboardStatCell(
+                    order: 1,
+                    playsEntrance: playsEntrance,
+                    icon: "text.alignleft",
+                    title: "Words dictated",
+                    detail: nil,
+                    value: summary.hasData ? Double(summary.wordCount) : nil,
+                    format: { Formatters.formattedCompactNumber(Int($0.rounded())) }
+                )
+                DashboardStatCell(
+                    order: 2,
+                    playsEntrance: playsEntrance,
+                    icon: "mic",
+                    title: "Sessions",
+                    detail: nil,
+                    value: summary.hasData ? Double(summary.sessionCount) : nil,
+                    format: { Formatters.formattedCompactNumber(Int($0.rounded())) }
+                )
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                DashboardStatCell(
+                    order: 3,
+                    playsEntrance: playsEntrance,
+                    icon: "speedometer",
+                    title: "Words per minute",
+                    detail: wordsPerMinute == nil
+                        ? String(localized: "needs a longer recording") : String(localized: "while speaking"),
+                    value: wordsPerMinute.map(Double.init),
+                    format: { String(Int($0.rounded())) }
+                )
+                DashboardStatCell(
+                    order: 4,
+                    playsEntrance: playsEntrance,
+                    icon: "flame",
+                    title: "Day streak",
+                    detail: longestDayStreak > 0
+                        ? String(format: String(localized: "best %d"), longestDayStreak) : nil,
+                    value: dayStreak > 0 ? Double(dayStreak) : nil,
+                    format: { String(Int($0.rounded())) }
+                )
+                DashboardStatCell(
+                    order: 5,
+                    playsEntrance: playsEntrance,
+                    icon: "sparkles",
+                    title: "Cleaned up by AI",
+                    detail: enhancedShareDetail,
+                    value: summary.hasData ? Double(enhancedCount) : nil,
+                    format: { Formatters.formattedCompactNumber(Int($0.rounded())) }
+                )
+            }
         }
     }
 
-    private func metricCell(title: LocalizedStringKey, value: String, systemName: String) -> some View {
-        // Ink style: big numeral first, quiet lowercase label under it.
+    /// "of 120 sessions" reads more honestly than a bare count, which otherwise
+    /// looks like a score without a denominator.
+    private var enhancedShareDetail: String? {
+        guard summary.hasData, summary.sessionCount > 0 else { return nil }
+        return String(
+            format: String(localized: "of %@ sessions"),
+            Formatters.formattedCompactNumber(summary.sessionCount)
+        )
+    }
+}
+
+/// Ink style: big numeral first, quiet lowercase label under it, a small gray
+/// glyph in the corner naming the metric at a glance. White card, hairline
+/// border, and a border that darkens a touch on hover; nothing louder.
+private struct DashboardStatCell: View {
+    let order: Int
+    let playsEntrance: Bool
+    let icon: String
+    let title: LocalizedStringKey
+    let detail: String?
+    /// Nil means no data yet; the cell shows "--" and skips the count-up.
+    let value: Double?
+    let format: (Double) -> String
+
+    @State private var isHovering = false
+
+    private var entranceDelay: Double { 0.08 + Double(order) * 0.05 }
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(value)
-                .font(.system(size: 30, weight: .semibold).monospacedDigit())
-                .foregroundStyle(AppTheme.Text.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.66)
+            HStack(alignment: .top, spacing: 8) {
+                numeral
+
+                Spacer(minLength: 6)
+
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppTheme.Text.muted)
+                    .padding(.top, 5)
+                    .accessibilityHidden(true)
+            }
 
             Text(title)
                 .font(.system(size: 12))
                 .foregroundStyle(AppTheme.Text.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.76)
+
+            if let detail {
+                Text(detail)
+                    .font(.system(size: 10))
+                    .foregroundStyle(AppTheme.Text.muted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
-        .frame(minWidth: 132, maxWidth: .infinity, minHeight: 92, alignment: .leading)
+        // One fixed minimum height for every cell, so the rows line up whether
+        // or not a cell carries a detail line.
+        .frame(minWidth: 132, maxWidth: .infinity, minHeight: 100, alignment: .topLeading)
         .background(DashboardInsightCardBackground(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.primary.opacity(isHovering ? 0.22 : 0), lineWidth: 1)
+        )
+        .animation(.easeOut(duration: 0.16), value: isHovering)
+        .onHover { isHovering = $0 }
+        .entranceReveal(delay: entranceDelay, play: playsEntrance)
+    }
+
+    @ViewBuilder
+    private var numeral: some View {
+        Group {
+            if let value {
+                CountUpText(
+                    target: value,
+                    format: format,
+                    delay: entranceDelay + 0.1,
+                    play: playsEntrance
+                )
+            } else {
+                Text(verbatim: "--")
+            }
+        }
+        .font(.system(size: 30, weight: .semibold).monospacedDigit())
+        .foregroundStyle(AppTheme.Text.primary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.66)
     }
 }
 

@@ -39,12 +39,20 @@ struct OnboardingExperienceScreen: View {
             contentMaxWidth: 560,
             showsHeader: true
         ) {
-            OnboardingExperienceIntroCard(
-                step: step,
-                shortcutAction: shortcutAction,
-                hasShortcut: hasShortcut,
-                onShortcutChanged: onShortcutChanged
-            )
+            VStack(spacing: 16) {
+                OnboardingExperienceIntroCard(
+                    step: step,
+                    shortcutAction: shortcutAction,
+                    hasShortcut: hasShortcut,
+                    onShortcutChanged: onShortcutChanged
+                )
+
+                // First dictation is when the recorder first shows up, so this
+                // is the moment to pick where it lives.
+                if step.kind == .dictation {
+                    OnboardingRecorderStyleCard()
+                }
+            }
             .id(step.id)
         } bottomBar: {
             OnboardingBottomBar(

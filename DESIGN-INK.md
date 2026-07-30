@@ -92,7 +92,15 @@ verbatim or their branding.
    black toggles; "Beta"-style chips for model names in gray, not colored.
 6. **Settings**: convert to modal-sheet style with left nav or at least
    settings-row pattern (title + current value + Change).
-7. **Recorder pill**: already black; keep.
+7. **Recorder pill**: already black; keep. Three styles now: Notch, Mini, and
+   Minimalist. Minimalist is Notch's motion with Notch's problems removed:
+   Notch draws a notch-hugging shape sized to the physical notch, so on a
+   notchless Mac (Derek's Air has no notch) it falls back to a hardcoded
+   180pt width and reads as a slab pinned to nothing. Minimalist uses a fixed
+   124x30 capsule tucked under the menu bar, shows no live text and no
+   assistant panel, and meters the voice with a single breathing circle
+   (PulseVisualizer) instead of a waveform: the only question a minimal
+   recorder should answer is "am I being heard".
 8. **Onboarding**: keep flow, restyle to white cards + serif headline with
    italic emphasis; copy per voice rules.
 
@@ -101,10 +109,11 @@ verbatim or their branding.
 - [x] Dictionary replacements (= their Snippets, spoken-phrase expansions)
 - [ ] Rename/reframe: surface Word Replacements as "Snippets: say a word,
       drop in saved text" with their explanation pattern
-- [ ] Insights: wpm stat, per-app usage split, streak heatmap (we have
-      SessionMetric data: timestamps, wordCount, modeName, duration to
-      derive all three)
-- [ ] "Fixes made" counter (enhancement diffs count vs raw)
+- [x] Insights: wpm stat and day streak, on the dashboard summary strip
+      (derived from SessionMetric; tests in DashboardStreakTests). Per-app
+      usage split still open.
+- [x] "Cleaned up by AI" counter (sessions with an enhancement model named,
+      shown against the session total)
 - [ ] Transforms (post-hoc rewrite of last transcription via hotkey):
       VoiceInk has retryLastTranscription + pasteLastEnhancement; a
       "re-enhance with prompt X" action exists in AudioPlayerView; defer

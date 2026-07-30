@@ -47,7 +47,10 @@ struct ModeConfigDraft {
             isTextFormattingEnabled = true
             useClipboardContext = false
             useSelectedTextContext = false
-            useScreenCapture = true
+            // Off by default: screen capture needs Screen Recording permission
+            // and sends on-screen text to the model. Opting a brand new mode
+            // into that silently is not a default anyone asked for.
+            useScreenCapture = false
             selectedAIProvider = inheritedConfig?.selectedAIProvider
             selectedAIModel = inheritedConfig?.selectedAIModel
             outputMode = .paste

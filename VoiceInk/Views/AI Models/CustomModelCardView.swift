@@ -89,6 +89,8 @@ struct CustomModelCardView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .frame(width: 20, height: 20)
+            .help("Model options")
+            .accessibilityLabel(Text("Model options"))
         }
     }
 }

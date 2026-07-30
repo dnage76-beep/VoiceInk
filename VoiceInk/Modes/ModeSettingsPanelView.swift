@@ -32,7 +32,10 @@ struct ModeSettingsPanelView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
+            // The mode list below scrolls under this header.
+            .background(.regularMaterial)
             .overlay(Divider().opacity(0.5), alignment: .bottom)
+            .zIndex(1)
 
             HStack {
                 Text("Reorder Modes")

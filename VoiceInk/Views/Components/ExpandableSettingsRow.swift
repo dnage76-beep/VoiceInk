@@ -7,6 +7,9 @@ struct ExpandableSettingsRow<Content: View>: View {
     private let label: LocalizedStringKey
     private let infoMessage: LocalizedStringKey?
     private let infoURL: String?
+    /// Optional one-line statement of the current value, shown under the title
+    /// so a collapsed row still says what it is set to.
+    private let summary: String?
     private let expandedContentTransition: AnyTransition
     private let content: () -> Content
 
@@ -25,6 +28,7 @@ struct ExpandableSettingsRow<Content: View>: View {
         self.label = label
         self.infoMessage = infoMessage
         self.infoURL = infoURL
+        self.summary = nil
         self.expandedContentTransition = .opacity.combined(with: .move(edge: .top))
         self.content = content
     }
@@ -32,6 +36,7 @@ struct ExpandableSettingsRow<Content: View>: View {
     init(
         title: LocalizedStringKey,
         isExpanded: Binding<Bool>,
+        summary: String? = nil,
         @ViewBuilder content: @escaping () -> Content
     ) {
         _isExpanded = isExpanded
@@ -39,6 +44,7 @@ struct ExpandableSettingsRow<Content: View>: View {
         self.label = title
         self.infoMessage = nil
         self.infoURL = nil
+        self.summary = summary
         self.expandedContentTransition = .opacity
         self.content = content
     }
@@ -52,10 +58,10 @@ struct ExpandableSettingsRow<Content: View>: View {
             HStack {
                 if let isEnabled = isEnabled {
                     Toggle(isOn: isEnabled) {
-                        labelView
+                        titleAndSummary
                     }
                 } else {
-                    labelView
+                    titleAndSummary
                 }
 
                 Spacer()
@@ -65,6 +71,9 @@ struct ExpandableSettingsRow<Content: View>: View {
                     .foregroundColor(.secondary)
                     .rotationEffect(.degrees(rowIsEnabled && isExpanded ? 90 : 0))
                     .opacity(rowIsEnabled ? 1 : 0.4)
+                    // The rotation is the only affordance that the row opens,
+                    // so it has to animate with the disclosure, not snap.
+                    .animation(.easeInOut(duration: 0.2), value: isExpanded)
             }
             .contentShape(Rectangle())
             .onTapGesture {
@@ -73,6 +82,9 @@ struct ExpandableSettingsRow<Content: View>: View {
                     isExpanded.toggle()
                 }
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint(Text(isExpanded ? "Collapse" : "Expand"))
 
             if rowIsEnabled && isExpanded {
                 VStack(alignment: .leading, spacing: 8) {
@@ -98,6 +110,23 @@ struct ExpandableSettingsRow<Content: View>: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isHandlingToggleChange = false
             }
+        }
+    }
+
+    @ViewBuilder
+    private var titleAndSummary: some View {
+        if let summary {
+            VStack(alignment: .leading, spacing: 2) {
+                labelView
+
+                Text(summary)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+        } else {
+            labelView
         }
     }
 

@@ -37,7 +37,10 @@ struct DashboardContent: View {
     @State private var displayNameDraft = ""
     @AppStorage("dashboardDisplayName") private var dashboardDisplayName: String = ""
     @FocusState private var isNameFieldFocused: Bool
-
+    /// Whether this appearance gets the entrance stagger. Decided in init,
+    /// because children read it during their own onAppear, which fires before
+    /// any state change made in ours could reach them.
+    @State private var playsEntrance: Bool
 
     init(
         modelContext: ModelContext,
@@ -53,6 +56,9 @@ struct DashboardContent: View {
         _statsSummary = State(initialValue: cachedSummary ?? .empty)
         _hasLoadedStatsSnapshot = State(initialValue: cachedSummary != nil)
         _statsSnapshotGeneratedAt = State(initialValue: cachedMetadata?.generatedAt)
+
+        _playsEntrance = State(initialValue: !DashboardEntrance.hasPlayed)
+        DashboardEntrance.hasPlayed = true
     }
 
     var body: some View {
@@ -129,6 +135,7 @@ struct DashboardContent: View {
             licenseStatusMessage
 
             greetingHeader
+                .entranceReveal(delay: 0.0, play: playsEntrance)
 
             if !isAccessibilityEnabled {
                 nameEditorDismissArea {
@@ -145,6 +152,7 @@ struct DashboardContent: View {
             if shouldShowLockedInsightsState {
                 nameEditorDismissArea {
                     heroSection
+                        .entranceReveal(delay: 0.05, play: playsEntrance)
                 }
             }
 
@@ -160,6 +168,7 @@ struct DashboardContent: View {
                     footerActionsView
                 }
                 .frame(maxWidth: .infinity)
+                .entranceReveal(delay: 0.48, play: playsEntrance)
             }
         }
         .frame(width: availableWidth, alignment: .topLeading)
@@ -169,7 +178,12 @@ struct DashboardContent: View {
     private var landingInsights: some View {
         VStack(alignment: .leading, spacing: 22) {
             DashboardProductivitySummaryStrip(
-                summary: selectedTimeSavedSummary
+                summary: selectedTimeSavedSummary,
+                wordsPerMinute: selectedTotals.wordsPerMinute,
+                dayStreak: statsSummary.currentDayStreak,
+                longestDayStreak: statsSummary.longestDayStreak,
+                enhancedCount: statsSummary.enhancedCount(for: selectedInsightPeriod),
+                playsEntrance: playsEntrance
             )
 
             DashboardProductivityCard(
@@ -179,6 +193,7 @@ struct DashboardContent: View {
                 isRefreshingStats: isDashboardStatsRefreshing,
                 onRefreshStats: refreshDashboardStats
             )
+            .entranceReveal(delay: 0.26, play: playsEntrance)
 
             HStack(alignment: .top, spacing: DashboardLayout.columnSpacing) {
                 DashboardPeakHoursCard(summary: selectedPeakHours, isLocked: shouldLockPeakHours)
@@ -188,16 +203,19 @@ struct DashboardContent: View {
                     .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .frame(height: 196)
+            .entranceReveal(delay: 0.32, play: playsEntrance)
 
             ModelUsageCard(
                 summary: selectedModelUsage,
                 onViewMore: openModelUsagePanel
             )
+            .entranceReveal(delay: 0.38, play: playsEntrance)
 
             ModelPerformanceCard(
                 summaries: selectedModelPerformance,
                 onViewMore: openModelPerformancePanel
             )
+            .entranceReveal(delay: 0.44, play: playsEntrance)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
     }

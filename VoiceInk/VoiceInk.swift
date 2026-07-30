@@ -346,6 +346,7 @@ struct VoiceInkApp: App {
                         .environmentObject(transcriptionModelManager)
                         .environmentObject(aiService)
                         .environmentObject(enhancementService)
+                        .environmentObject(recorderUIManager)
                         .frame(width: AppWindowLayout.width)
                         .frame(minHeight: AppWindowLayout.minimumHeight)
                         .background(

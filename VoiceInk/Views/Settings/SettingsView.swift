@@ -23,6 +23,8 @@ struct SettingsView: View {
     @AppStorage(AppLanguagePreference.userDefaultsKey) private var appLanguagePreference = AppLanguagePreference
         .systemValue
     @AppStorage(RecorderDisplaySettingsKeys.showLiveTranscript) private var showLiveTranscript = true
+    @AppStorage(MinimalVoiceAnimation.storageKey) private var minimalVoiceAnimationRaw = MinimalVoiceAnimation.wave
+        .rawValue
     @State private var showResetOnboardingAlert = false
     @State private var showLanguageRestartAlert = false
     @State private var hasCancelRecordingShortcut = ShortcutStore.shortcut(for: .cancelRecorder) != nil
@@ -222,11 +224,40 @@ struct SettingsView: View {
                     RecorderStylePicker(selection: $recorderUIManager.recorderPanelStyle)
                 }
 
-                Toggle(isOn: $showLiveTranscript) {
+                if recorderUIManager.recorderPanelStyle == .minimal {
+                    Picker(selection: $minimalVoiceAnimationRaw) {
+                        ForEach(MinimalVoiceAnimation.allCases) { animation in
+                            Text(animation.displayName).tag(animation.rawValue)
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("Voice Animation")
+                            InfoTip(
+                                "How the Minimalist recorder shows your voice. Wave is a flowing line that swells as you speak. Scroll streams your last few seconds past like Voice Memos, newest at the right. Bars is a row of bars rippling with your voice."
+                            )
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                let supportsLiveTranscript = recorderUIManager.recorderPanelStyle.supportsLiveTranscript
+
+                Toggle(isOn: liveTranscriptBinding(isSupported: supportsLiveTranscript)) {
                     HStack(spacing: 4) {
                         Text("Live Text Display")
-                        InfoTip("Shows live text while recording with realtime models.")
+                        InfoTip(
+                            "Shows the words as you speak them, inside the recorder, while a realtime model is transcribing. The Minimalist recorder never shows text, so this has no effect there."
+                        )
                     }
+                }
+                // Rather than leave a toggle that silently does nothing, show it
+                // off and say why. The stored preference is left untouched, so
+                // switching back to Notch or Mini restores the user's choice.
+                .disabled(!supportsLiveTranscript)
+
+                if !supportsLiveTranscript {
+                    Text("The Minimalist recorder does not show live text.")
+                        .settingsDescription()
                 }
             }
 
@@ -319,6 +350,18 @@ struct SettingsView: View {
         } message: {
             Text("Your language change will take full effect after you quit and reopen VoiceInk.")
         }
+    }
+
+    /// Reads as off for recorder styles that cannot show live text, without
+    /// overwriting the preference the user set for the styles that can.
+    private func liveTranscriptBinding(isSupported: Bool) -> Binding<Bool> {
+        Binding(
+            get: { isSupported && showLiveTranscript },
+            set: { newValue in
+                guard isSupported else { return }
+                showLiveTranscript = newValue
+            }
+        )
     }
 
     private static let defaultCancelRecordingShortcut = Shortcut.key(

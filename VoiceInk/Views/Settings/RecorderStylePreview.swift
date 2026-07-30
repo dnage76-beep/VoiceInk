@@ -21,6 +21,27 @@ struct RecorderStylePreview: View {
                         )
                 )
 
+            // A sketch of a document on the screen, so the rectangle reads as
+            // a display with work on it rather than an empty box, and the
+            // recorder marker reads as sitting over that work.
+            VStack(alignment: .leading, spacing: 3.5) {
+                Capsule(style: .continuous)
+                    .fill(Color.primary.opacity(0.16))
+                    .frame(width: 30, height: 3.5)
+                Capsule(style: .continuous)
+                    .fill(Color.primary.opacity(0.10))
+                    .frame(width: 56, height: 3)
+                Capsule(style: .continuous)
+                    .fill(Color.primary.opacity(0.10))
+                    .frame(width: 48, height: 3)
+                Capsule(style: .continuous)
+                    .fill(Color.primary.opacity(0.10))
+                    .frame(width: 22, height: 3)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 14)
+            .padding(.top, 6)
+
             switch style {
             case .notch:
                 VStack {
@@ -38,6 +59,15 @@ struct RecorderStylePreview: View {
                         .frame(width: 40, height: 13)
                     Spacer().frame(height: 9)
                 }
+            case .minimal:
+                // Smaller than both, fully rounded, tucked under the menu bar.
+                VStack {
+                    Capsule()
+                        .fill(AppTheme.Accent.primary)
+                        .frame(width: 26, height: 9)
+                    Spacer()
+                }
+                .padding(.top, 5)
             }
         }
         .frame(width: size.width, height: size.height)
@@ -81,6 +111,8 @@ extension RecorderPanelStyle {
             return String(localized: "Sits at the top of the screen, around the notch.")
         case .mini:
             return String(localized: "A small pill near the bottom of the screen.")
+        case .minimal:
+            return String(localized: "The smallest one. Just the voice animation at the top of the screen; click it to stop.")
         }
     }
 }

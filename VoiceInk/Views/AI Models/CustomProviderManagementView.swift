@@ -138,6 +138,10 @@ private struct CustomEnhancementModelRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(provider.name)
                     .font(.system(size: 13, weight: .semibold))
+                    // User-typed name, so it can be any length; the row sits in
+                    // a fixed-width panel next to the overflow menu.
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
                 if provider.modelName.isEmpty {
                     Text("No model configured")
@@ -164,6 +168,8 @@ private struct CustomEnhancementModelRow: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .frame(width: 22, height: 22)
+            .help("Provider options")
+            .accessibilityLabel(Text("Provider options"))
         }
         .padding(14)
         .background(ProviderSurface(cornerRadius: 10))

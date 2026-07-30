@@ -19,6 +19,7 @@ struct ModeConfigFormView: View {
     @State private var isShowingDeleteConfirmation = false
     @State private var isShowingDefaultModeDeleteAlert = false
     @State private var isContextAwarenessExpanded = false
+    @State private var isScreenRecordingGranted = CGPreflightScreenCaptureAccess()
 
     private var isDeletingDefaultMode: Bool {
         modeManager.getConfiguration(with: draft.id)?.isDefault == true
@@ -87,6 +88,11 @@ struct ModeConfigFormView: View {
         .onChange(of: draft.selectedAIModel) { _, _ in
             applyOutputRules()
         }
+        // The grant happens in System Settings, so re-check on return rather
+        // than trusting the value read when the form opened.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            isScreenRecordingGranted = CGPreflightScreenCaptureAccess()
+        }
     }
 
     private var header: some View {
@@ -128,7 +134,12 @@ struct ModeConfigFormView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+        // The Form below scrolls, and without an opaque backing its rows show
+        // through the header as they pass under it.
+        .background(.regularMaterial)
         .overlay(Divider().opacity(0.5), alignment: .bottom)
+        // Keeps the header above the scrolling content it overlaps.
+        .zIndex(1)
     }
 
     private var formContent: some View {
@@ -200,7 +211,7 @@ struct ModeConfigFormView: View {
                     set: { draft.selectedTranscriptionModelName = $0 }
                 )
 
-                Picker("Model", selection: modelBinding) {
+                Picker(selection: modelBinding) {
                     // A placeholder prompting a choice, not a state the user
                     // can pick. It disappears once a model is selected.
                     if draft.selectedTranscriptionModelName == nil {
@@ -210,6 +221,13 @@ struct ModeConfigFormView: View {
 
                     ForEach(warmupSnapshot.usableTranscriptionModels, id: \.name) { model in
                         Text(model.displayName).tag(model.name as String?)
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("Model")
+                        InfoTip(
+                            "Which model turns your speech into text for this mode. This is the transcription step, separate from AI Enhancement below, which cleans the text up afterwards."
+                        )
                     }
                 }
                 .onChange(of: draft.selectedTranscriptionModelName) { _, newModelName in
@@ -232,12 +250,17 @@ struct ModeConfigFormView: View {
 
             ExpandableSettingsRow(
                 title: "Transcription Formatting",
-                isExpanded: $draft.isTranscriptionFormattingExpanded
+                isExpanded: $draft.isTranscriptionFormattingExpanded,
+                summary: draft.isTextFormattingEnabled
+                    ? String(localized: "Paragraph breaks on")
+                    : String(localized: "Paragraph breaks off")
             ) {
                 Toggle(isOn: $draft.isTextFormattingEnabled) {
                     HStack(spacing: 4) {
                         Text("Paragraph breaks")
-                        InfoTip("Apply intelligent text formatting to break large block of text into paragraphs.")
+                        InfoTip(
+                            "Splits a long dictation into paragraphs instead of returning one solid block. This runs on the transcript itself, with no AI model involved."
+                        )
                     }
                 }
             }
@@ -249,16 +272,25 @@ struct ModeConfigFormView: View {
         if let model = selectedTranscriptionModel,
             TranscriptionRealtimeSupport.isAvailable(for: model)
         {
-            Toggle("Real-time", isOn: $draft.isRealtimeTranscriptionEnabled)
-                .disabled(TranscriptionRealtimeSupport.isRequired(for: model))
-                .onAppear {
-                    if TranscriptionRealtimeSupport.isRequired(for: model) {
-                        draft.isRealtimeTranscriptionEnabled = true
-                    }
+            Toggle(isOn: $draft.isRealtimeTranscriptionEnabled) {
+                HStack(spacing: 4) {
+                    Text("Real-time")
+                    InfoTip(
+                        TranscriptionRealtimeSupport.isRequired(for: model)
+                            ? "Transcribes while you speak instead of after you stop. This model only works this way, so it cannot be turned off here."
+                            : "Transcribes while you speak, so the text is ready the moment you stop. Turn it off to transcribe the whole recording at the end, which some models handle more accurately."
+                    )
                 }
-                .onChange(of: draft.isRealtimeTranscriptionEnabled) { _, _ in
-                    draft.useCompatibleLanguage(for: model)
+            }
+            .disabled(TranscriptionRealtimeSupport.isRequired(for: model))
+            .onAppear {
+                if TranscriptionRealtimeSupport.isRequired(for: model) {
+                    draft.isRealtimeTranscriptionEnabled = true
                 }
+            }
+            .onChange(of: draft.isRealtimeTranscriptionEnabled) { _, _ in
+                draft.useCompatibleLanguage(for: model)
+            }
         }
     }
 
@@ -282,9 +314,7 @@ struct ModeConfigFormView: View {
             )
 
             HStack(spacing: 8) {
-                HStack(spacing: 4) {
-                    Text("Language")
-                }
+                Text("Language")
 
                 Spacer(minLength: 12)
 
@@ -329,27 +359,34 @@ struct ModeConfigFormView: View {
 
     private var aiEnhancementSection: some View {
         Section("AI Enhancement") {
-            Toggle("AI Enhancement", isOn: $draft.isAIEnhancementEnabled)
-                .onChange(of: draft.isAIEnhancementEnabled) { _, newValue in
-                    if newValue {
-                        if configuredSelectedAIProvider == nil {
-                            draft.selectedAIProvider = aiProviderOptions.first?.rawValue
-                            draft.selectedAIModel = nil
-                        }
-                        if draft.selectedAIModel == nil,
-                            let provider = configuredSelectedAIProvider,
-                            provider != .localCLI
-                        {
-                            draft.selectedAIModel = warmupSnapshot.selectedModel(for: provider)
-                        }
-                        if draft.selectedPromptId == nil {
-                            draft.selectedPromptId = warmupSnapshot.firstPromptId
-                        }
-                        if configuredSelectedAIProvider == .ollama {
-                            aiService.refreshOllamaAvailabilityInBackground()
-                        }
+            Toggle(isOn: $draft.isAIEnhancementEnabled) {
+                HStack(spacing: 4) {
+                    Text("AI Enhancement")
+                    InfoTip(
+                        "A second pass over the transcript: an AI model removes filler words, fixes punctuation, and applies the corrections you spoke out loud. Leave it off for the fastest possible paste."
+                    )
+                }
+            }
+            .onChange(of: draft.isAIEnhancementEnabled) { _, newValue in
+                if newValue {
+                    if configuredSelectedAIProvider == nil {
+                        draft.selectedAIProvider = aiProviderOptions.first?.rawValue
+                        draft.selectedAIModel = nil
+                    }
+                    if draft.selectedAIModel == nil,
+                        let provider = configuredSelectedAIProvider,
+                        provider != .localCLI
+                    {
+                        draft.selectedAIModel = warmupSnapshot.selectedModel(for: provider)
+                    }
+                    if draft.selectedPromptId == nil {
+                        draft.selectedPromptId = warmupSnapshot.firstPromptId
+                    }
+                    if configuredSelectedAIProvider == .ollama {
+                        aiService.refreshOllamaAvailabilityInBackground()
                     }
                 }
+            }
 
             let providerBinding = Binding<AIProvider>(
                 get: {
@@ -371,9 +408,16 @@ struct ModeConfigFormView: View {
                             .italic()
                     }
                 } else {
-                    Picker("AI Provider", selection: providerBinding) {
+                    Picker(selection: providerBinding) {
                         ForEach(providerOptions, id: \.self) { provider in
                             Text(provider.rawValue).tag(provider)
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("AI Provider")
+                            InfoTip(
+                                "Which service runs the enhancement for this mode. Only providers you have already connected on the AI Enhancement page appear here."
+                            )
                         }
                     }
                     .onChange(of: draft.selectedAIProvider) { _, newValue in
@@ -465,7 +509,12 @@ struct ModeConfigFormView: View {
 
     private var promptPicker: some View {
         HStack(spacing: 8) {
-            Text("Prompt")
+            HStack(spacing: 4) {
+                Text("Prompt")
+                InfoTip(
+                    "The instructions the enhancement model follows: how formal to be, whether to keep slang, what formatting to use. Edit it with the pencil, or add your own with the plus."
+                )
+            }
 
             Spacer(minLength: 12)
 
@@ -508,12 +557,33 @@ struct ModeConfigFormView: View {
     private var contextAwarenessRow: some View {
         ExpandableSettingsRow(
             title: "Context Awareness",
-            isExpanded: $isContextAwarenessExpanded
+            isExpanded: $isContextAwarenessExpanded,
+            summary: contextAwarenessSummary
         ) {
             VStack(alignment: .leading, spacing: 10) {
+                Text(
+                    "Extra text sent to the model along with your dictation, so it can match names and spelling to what is already on screen. It never replaces what you said."
+                )
+                .settingsDescription()
+
                 contextToggles
             }
         }
+    }
+
+    /// States what is actually switched on, so the collapsed row does not read
+    /// as an unexplained disclosure arrow.
+    private var contextAwarenessSummary: String {
+        var sources: [String] = []
+        if draft.useSelectedTextContext { sources.append(String(localized: "selected text")) }
+        if draft.useClipboardContext { sources.append(String(localized: "clipboard")) }
+        if draft.useScreenCapture { sources.append(String(localized: "screen")) }
+
+        guard !sources.isEmpty else {
+            return String(localized: "Nothing extra is sent")
+        }
+
+        return sources.joined(separator: ", ")
     }
 
     private var contextToggles: some View {
@@ -521,23 +591,53 @@ struct ModeConfigFormView: View {
             Toggle(isOn: $draft.useSelectedTextContext) {
                 HStack(spacing: 4) {
                     Text("Selected Text")
-                    InfoTip("Use selected text from the active app as context for this mode.")
+                    InfoTip(
+                        "Whatever text is highlighted in the app you are dictating into gets sent along with your words. Useful for rewriting: highlight a sentence, say how to change it."
+                    )
                 }
             }
 
             Toggle(isOn: $draft.useClipboardContext) {
                 HStack(spacing: 4) {
                     Text("Clipboard")
-                    InfoTip("Use clipboard text as context for this mode.")
+                    InfoTip(
+                        "Sends whatever is currently on your clipboard as reference material. Worth leaving off unless a mode really needs it, since you may not remember what you copied last."
+                    )
                 }
             }
 
             Toggle(isOn: $draft.useScreenCapture) {
                 HStack(spacing: 4) {
                     Text("Screen")
-                    InfoTip("Use captured on-screen text as context for this mode.")
+                    InfoTip(
+                        "Takes a picture of your screen when you start recording, reads the text out of it, and sends that too. Needs Screen Recording permission, and it is the slowest of the three."
+                    )
                 }
             }
+
+            // Without the permission this toggle looks on but silently captures
+            // nothing, which is the exact failure the user cannot diagnose.
+            if draft.useScreenCapture && !isScreenRecordingGranted {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppTheme.Status.warningStrong)
+
+                    Text("Screen Recording permission is off, so no screen text is being sent.")
+                        .settingsDescription()
+
+                    Button("Open Settings", action: openScreenRecordingSettings)
+                        .controlSize(.small)
+                }
+            }
+        }
+    }
+
+    private func openScreenRecordingSettings() {
+        if let url = URL(
+            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        {
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -555,10 +655,17 @@ struct ModeConfigFormView: View {
 
     private var advancedSection: some View {
         Section("Advanced") {
-            Picker("Output", selection: $draft.outputMode) {
+            Picker(selection: $draft.outputMode) {
                 ForEach(outputChoices, id: \.self) { outputMode in
                     Label(outputMode.displayName, systemImage: outputMode.iconName)
                         .tag(outputMode)
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text("Output")
+                    InfoTip(
+                        "What happens with the finished text. Paste types it where your cursor is. Respond shows the model's reply in the recorder instead of pasting, for asking questions out loud. Custom Command pipes the text into a script you write.\n\nRespond needs AI Enhancement on with a prompt and provider set, so it only appears once those are in place."
+                    )
                 }
             }
             .onChange(of: draft.outputMode) { _, _ in
@@ -667,6 +774,10 @@ struct ModeConfigFormView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
         }
+        // Same reason as the header: the scrolling Form passes underneath.
+        .background(.regularMaterial)
+        .overlay(Divider().opacity(0.5), alignment: .top)
+        .zIndex(1)
     }
 
     private func languageSelectionDisabled() -> Bool {

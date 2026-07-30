@@ -97,6 +97,40 @@ struct DefaultModeIndicator: View {
     }
 }
 
+/// One metadata chip on a mode card (model, language, prompt, output mode).
+/// Extracted because the same capsule was written out six times inline, which
+/// is how the chips drifted out of alignment with each other.
+struct ModeMetadataChip: View {
+    let systemImage: String
+    let text: String
+    var isWarning: Bool = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.system(size: 10))
+            Text(text)
+                .font(.caption)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .foregroundStyle(isWarning ? Color.white : Color.primary)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(
+            Capsule()
+                .fill(isWarning ? Color.red.opacity(0.80) : AppTheme.Surface.control)
+        )
+        .overlay(
+            Capsule()
+                .stroke(
+                    isWarning ? Color.red.opacity(0.80) : AppTheme.Border.control,
+                    lineWidth: 0.5
+                )
+        )
+    }
+}
+
 struct ConfigurationRow: View {
     private struct TranscriptionModelMetadata {
         let label: String
@@ -316,28 +350,10 @@ struct ConfigurationRow: View {
 
             HStack(spacing: 8) {
                 let modelMetadata = transcriptionModelMetadata
-                let modelBadge = HStack(spacing: 4) {
-                    Image(systemName: modelMetadata.isWarning ? "exclamationmark.triangle.fill" : "waveform")
-                        .font(.system(size: 10))
-                    Text(modelMetadata.label)
-                        .font(.caption)
-                }
-                .foregroundStyle(modelMetadata.isWarning ? Color.white : Color.primary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(
-                    Capsule()
-                        .fill(
-                            modelMetadata.isWarning
-                                ? Color.red.opacity(0.80) : AppTheme.Surface.control)
-                )
-                .overlay(
-                    Capsule()
-                        .stroke(
-                            modelMetadata.isWarning
-                                ? Color.red.opacity(0.80) : AppTheme.Border.control,
-                            lineWidth: 0.5
-                        )
+                let modelBadge = ModeMetadataChip(
+                    systemImage: modelMetadata.isWarning ? "exclamationmark.triangle.fill" : "waveform",
+                    text: modelMetadata.label,
+                    isWarning: modelMetadata.isWarning
                 )
 
                 // A warning badge is a way out, not just a label.
@@ -360,22 +376,7 @@ struct ConfigurationRow: View {
                 }
 
                 if let language = selectedLanguage, language != "Default" {
-                    HStack(spacing: 4) {
-                        Image(systemName: "globe")
-                            .font(.system(size: 10))
-                        Text(language)
-                            .font(.caption)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(AppTheme.Surface.control)
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(AppTheme.Border.control, lineWidth: 0.5)
-                    )
+                    ModeMetadataChip(systemImage: "globe", text: language)
                 }
 
                 if config.isAIEnhancementEnabled,
@@ -383,77 +384,30 @@ struct ConfigurationRow: View {
                     let modelName = config.selectedAIModel,
                     !modelName.isEmpty
                 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "cpu")
-                            .font(.system(size: 10))
-                        Text(modelName.count > 20 ? String(modelName.prefix(18)) + "..." : modelName)
-                            .font(.caption)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(AppTheme.Surface.control)
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(AppTheme.Border.control, lineWidth: 0.5)
+                    ModeMetadataChip(
+                        systemImage: "cpu",
+                        text: modelName.count > 20 ? String(modelName.prefix(18)) + "..." : modelName
                     )
                 }
 
                 if config.outputMode != .paste {
-                    HStack(spacing: 4) {
-                        Image(systemName: config.outputMode.iconName)
-                            .font(.system(size: 10))
-                        Text(config.outputMode.displayName)
-                            .font(.caption)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(AppTheme.Surface.control)
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(AppTheme.Border.control, lineWidth: 0.5)
+                    ModeMetadataChip(
+                        systemImage: config.outputMode.iconName,
+                        text: config.outputMode.displayName
                     )
                 }
 
                 if config.outputMode == .paste && config.autoSendKey.isEnabled {
-                    HStack(spacing: 4) {
-                        Image(systemName: "keyboard")
-                            .font(.system(size: 10))
-                        Text(config.autoSendKey.displayName)
-                            .font(.caption)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(AppTheme.Surface.control)
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(AppTheme.Border.control, lineWidth: 0.5)
+                    ModeMetadataChip(
+                        systemImage: "keyboard",
+                        text: config.autoSendKey.displayName
                     )
                 }
+
                 if config.isAIEnhancementEnabled {
-                    HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 10))
-                        Text(selectedPrompt?.title ?? "AI")
-                            .font(.caption)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(AppTheme.Surface.control)
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(AppTheme.Border.control, lineWidth: 0.5)
+                    ModeMetadataChip(
+                        systemImage: "sparkles",
+                        text: selectedPrompt?.title ?? String(localized: "AI")
                     )
                 }
 
@@ -468,8 +422,11 @@ struct ConfigurationRow: View {
             .onTapGesture {
                 onEditConfig(config)
             }
-            .padding(.vertical, 6)
+            // The chips are ~20pt capsules, so 6pt of padding left them
+            // crowding the card's rounded bottom corners and getting clipped.
+            .padding(.vertical, 10)
             .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(AppTheme.Surface.card)
         }
         .clipShape(RoundedRectangle(cornerRadius: 16))

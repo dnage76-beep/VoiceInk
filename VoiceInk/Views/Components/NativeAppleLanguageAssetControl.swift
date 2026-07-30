@@ -84,7 +84,8 @@ struct NativeAppleLanguageAssetControl: View {
             .buttonStyle(.plain)
             .controlSize(.small)
             .frame(width: 28, height: 24)
-        case .failed(let message):
+        // The reason is shown via helpText on the parent, not here.
+        case .failed:
             Button(action: downloadAsset) {
                 Image(systemName: "arrow.clockwise.circle.fill")
                     .font(.system(size: 14, weight: .semibold))

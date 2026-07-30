@@ -5,6 +5,7 @@ import os
 enum RecorderPanelStyle: String, CaseIterable, Identifiable {
     case notch
     case mini
+    case minimal
 
     var id: String { rawValue }
 
@@ -14,6 +15,19 @@ enum RecorderPanelStyle: String, CaseIterable, Identifiable {
             return String(localized: "Notch")
         case .mini:
             return String(localized: "Mini")
+        case .minimal:
+            return String(localized: "Minimalist")
+        }
+    }
+
+    /// Minimalist deliberately shows no transcript and no assistant panel, so
+    /// the settings that drive those have nothing to act on here.
+    var supportsLiveTranscript: Bool {
+        switch self {
+        case .notch, .mini:
+            return true
+        case .minimal:
+            return false
         }
     }
 
@@ -58,6 +72,7 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
 
     private var notchWindowManager: NotchWindowManager?
     private var miniWindowManager: MiniWindowManager?
+    private var minimalWindowManager: MinimalWindowManager?
 
     private weak var engine: VoiceInkEngine?
     private var recorder: Recorder?
@@ -127,6 +142,19 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                 )
             }
             miniWindowManager?.show()
+        case .minimal:
+            if minimalWindowManager == nil {
+                minimalWindowManager = MinimalWindowManager(
+                    engine: engine,
+                    recorder: recorder,
+                    onRecordButtonTapped: { [weak self] in
+                        Task { @MainActor in
+                            await self?.toggleRecorderPanel()
+                        }
+                    }
+                )
+            }
+            minimalWindowManager?.show()
         }
     }
 
@@ -136,6 +164,8 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
             notchWindowManager?.hide()
         case .mini:
             miniWindowManager?.hide()
+        case .minimal:
+            minimalWindowManager?.hide()
         }
     }
 
@@ -149,6 +179,9 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
         case .mini:
             miniWindowManager?.destroyWindow()
             miniWindowManager = nil
+        case .minimal:
+            minimalWindowManager?.destroyWindow()
+            minimalWindowManager = nil
         }
 
         Task { @MainActor in

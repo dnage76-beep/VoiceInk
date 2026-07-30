@@ -55,6 +55,13 @@ enum DashboardStatsLoader {
             var allTimePeakHours: [Int: DashboardPeakHourAccumulator] = [:]
             var allTimeMonthWords: [Date: Int] = [:]
             var firstMetricDate: Date?
+            // Every day that saw at least one session, for the streak.
+            var activeDays: Set<Date> = []
+            var todayEnhancedCount = 0
+            var recentSevenDayEnhancedCount = 0
+            var lastThirtyDayEnhancedCount = 0
+            var thisYearEnhancedCount = 0
+            var totalEnhancedCount = 0
             let windows = DashboardPeriodWindows()
             let now = windows.now
             let calendar = windows.calendar
@@ -105,16 +112,25 @@ enum DashboardStatsLoader {
                     words += metric.wordCount
                     duration += metric.audioDuration
 
+                    // A session counts as enhanced when a model actually ran on
+                    // it, which is what naming a model records.
+                    let wasEnhanced = sanitizedModelName(metric.aiEnhancementModelName) != nil
+                    if wasEnhanced {
+                        totalEnhancedCount += 1
+                    }
+
                     if windows.todayInterval.contains(metric.timestamp) {
                         todayCount += 1
                         todayWords += metric.wordCount
                         todayDuration += metric.audioDuration
+                        if wasEnhanced { todayEnhancedCount += 1 }
                     }
 
                     if windows.recentSevenDayInterval.contains(metric.timestamp) {
                         recentSevenDayCount += 1
                         recentSevenDayWords += metric.wordCount
                         recentSevenDayDuration += metric.audioDuration
+                        if wasEnhanced { recentSevenDayEnhancedCount += 1 }
                     } else if windows.previousSevenDayInterval.contains(metric.timestamp) {
                         previousSevenDayCount += 1
                         previousSevenDayWords += metric.wordCount
@@ -125,12 +141,14 @@ enum DashboardStatsLoader {
                         lastThirtyDayCount += 1
                         lastThirtyDayWords += metric.wordCount
                         lastThirtyDayDuration += metric.audioDuration
+                        if wasEnhanced { lastThirtyDayEnhancedCount += 1 }
                     }
 
                     if windows.thisYearInterval.contains(metric.timestamp) {
                         thisYearCount += 1
                         thisYearWords += metric.wordCount
                         thisYearDuration += metric.audioDuration
+                        if wasEnhanced { thisYearEnhancedCount += 1 }
                     }
 
                     let metricHourStart = startOfHour(for: metric.timestamp, calendar: calendar)
@@ -139,6 +157,7 @@ enum DashboardStatsLoader {
                     }
 
                     let metricDay = calendar.startOfDay(for: metric.timestamp)
+                    activeDays.insert(metricDay)
                     if let weekIndex = sevenDayIndices[metricDay] {
                         lastSevenDayProductivity[weekIndex].words += metric.wordCount
                     }
@@ -226,6 +245,8 @@ enum DashboardStatsLoader {
 
             try Task.checkCancellation()
 
+            let streaks = Self.dayStreaks(activeDays: activeDays, now: now, calendar: calendar)
+
             let allTimeProductivity: [DashboardProductivityPoint] = {
                 guard let firstMetricDate else { return [] }
                 return Self.monthlyProductivityPoints(
@@ -304,7 +325,14 @@ enum DashboardStatsLoader {
                 lastSevenDayPeakHours: Self.peakHoursSummary(from: lastSevenDayPeakHours),
                 lastThirtyDayPeakHours: Self.peakHoursSummary(from: lastThirtyDayPeakHours),
                 thisYearPeakHours: Self.peakHoursSummary(from: thisYearPeakHours),
-                allTimePeakHours: Self.peakHoursSummary(from: allTimePeakHours)
+                allTimePeakHours: Self.peakHoursSummary(from: allTimePeakHours),
+                currentDayStreak: streaks.current,
+                longestDayStreak: streaks.longest,
+                todayEnhancedCount: todayEnhancedCount,
+                recentSevenDayEnhancedCount: recentSevenDayEnhancedCount,
+                lastThirtyDayEnhancedCount: lastThirtyDayEnhancedCount,
+                thisYearEnhancedCount: thisYearEnhancedCount,
+                totalEnhancedCount: totalEnhancedCount
             )
         }
 
@@ -313,6 +341,56 @@ enum DashboardStatsLoader {
         } onCancel: {
             task.cancel()
         }
+    }
+
+    /// Current and longest runs of consecutive days with at least one session.
+    ///
+    /// The current streak is allowed to end yesterday rather than today: it is
+    /// still an unbroken run until today is actually missed, and showing it
+    /// collapse to zero every midnight would be wrong.
+    static func dayStreaks(
+        activeDays: Set<Date>,
+        now: Date,
+        calendar: Calendar
+    ) -> (current: Int, longest: Int) {
+        guard !activeDays.isEmpty else { return (0, 0) }
+
+        let sortedDays = activeDays.sorted()
+
+        var longest = 1
+        var run = 1
+        for index in 1..<max(sortedDays.count, 1) {
+            let previous = sortedDays[index - 1]
+            let day = sortedDays[index]
+            let gap = calendar.dateComponents([.day], from: previous, to: day).day ?? 0
+
+            if gap == 1 {
+                run += 1
+            } else {
+                run = 1
+            }
+            longest = max(longest, run)
+        }
+
+        let today = calendar.startOfDay(for: now)
+        guard let mostRecent = sortedDays.last,
+            let daysSinceMostRecent = calendar.dateComponents([.day], from: mostRecent, to: today).day,
+            daysSinceMostRecent <= 1
+        else {
+            return (0, longest)
+        }
+
+        // Walk back from the most recent active day while days stay contiguous.
+        var current = 1
+        var cursor = mostRecent
+        while let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor),
+            activeDays.contains(previousDay)
+        {
+            current += 1
+            cursor = previousDay
+        }
+
+        return (current, max(longest, current))
     }
 
     private static func monthlyProductivityPoints(

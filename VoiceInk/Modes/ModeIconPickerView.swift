@@ -234,6 +234,8 @@ private struct ModeIconButton: View {
                 }
                 .buttonStyle(.borderless)
                 .offset(x: 6, y: -6)
+                .help("Remove icon")
+                .accessibilityLabel(Text("Remove icon"))
             }
         }
     }

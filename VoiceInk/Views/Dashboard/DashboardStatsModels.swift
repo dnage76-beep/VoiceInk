@@ -127,6 +127,14 @@ struct DashboardMetricTotals: Codable, Equatable, Sendable {
     var count: Int = 0
     var words: Int = 0
     var duration: TimeInterval = 0
+
+    /// Speaking rate over the period: words divided by time actually spent
+    /// recording. Needs a few seconds of audio before it means anything, since
+    /// a two-word command in a one-second clip extrapolates absurdly.
+    var wordsPerMinute: Int? {
+        guard duration >= 5, words > 0 else { return nil }
+        return Int((Double(words) / (duration / 60)).rounded())
+    }
 }
 
 struct DashboardProductivityPoint: Codable, Equatable, Identifiable, Sendable {
@@ -275,6 +283,15 @@ struct DashboardStatsSummary: Codable, Equatable, Sendable {
     var lastThirtyDayPeakHours: DashboardPeakHoursSummary = .empty
     var thisYearPeakHours: DashboardPeakHoursSummary = .empty
     var allTimePeakHours: DashboardPeakHoursSummary = .empty
+    /// Consecutive days ending today (or yesterday) with at least one session.
+    var currentDayStreak: Int = 0
+    /// Longest run of consecutive active days ever recorded.
+    var longestDayStreak: Int = 0
+    var todayEnhancedCount: Int = 0
+    var recentSevenDayEnhancedCount: Int = 0
+    var lastThirtyDayEnhancedCount: Int = 0
+    var thisYearEnhancedCount: Int = 0
+    var totalEnhancedCount: Int = 0
 }
 
 extension DashboardStatsSummary {
@@ -367,6 +384,21 @@ extension DashboardStatsSummary {
             return thisYearModelUsage
         case .allTime:
             return allTimeModelUsage
+        }
+    }
+
+    func enhancedCount(for period: DashboardInsightPeriod) -> Int {
+        switch period {
+        case .today:
+            return todayEnhancedCount
+        case .lastSevenDays:
+            return recentSevenDayEnhancedCount
+        case .lastThirtyDays:
+            return lastThirtyDayEnhancedCount
+        case .thisYear:
+            return thisYearEnhancedCount
+        case .allTime:
+            return totalEnhancedCount
         }
     }
 
