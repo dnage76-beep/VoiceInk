@@ -4,7 +4,18 @@ Free, fully unlocked build of the open-source VoiceInk dictation app,
 with polish and bug fixes on top of upstream. Tap or hold Fn, talk,
 and clean text lands in whatever app you're typing in.
 
-## Install
+## Install (easiest)
+
+Paste this into Terminal and press return:
+
+```
+curl -fsSL https://raw.githubusercontent.com/dnage76-beep/VoiceInk/main/install.sh | bash
+```
+
+It downloads the app, installs it, and skips the Gatekeeper warning
+below. Then jump to step 3.
+
+## Install (by hand)
 
 1. Drag **VoiceInk.app** to Applications.
 2. First open: **right-click the app, choose Open, then Open again.**
