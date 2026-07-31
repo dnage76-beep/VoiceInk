@@ -55,6 +55,15 @@ struct OnboardingView: View {
                     OnboardingModelScreen(
                         contentMaxWidth: contentMaxWidth,
                         localModel: coordinator.requiredTranscriptionModel,
+                        alternativeLocalModels: coordinator.localTranscriptionModelChoices.filter {
+                            $0.name != coordinator.requiredTranscriptionModel?.name
+                        },
+                        onSelectLocalModel: { model in
+                            coordinator.selectedLocalModelName = model.name
+                        },
+                        isLocalModelDownloaded: { model in
+                            fluidAudioModelManager.isFluidAudioModelDownloaded(model)
+                        },
                         setupKind: coordinator.transcriptionSetupKind,
                         providerOptions: coordinator.onboardingTranscriptionProviderOptions,
                         selectedProviderKey: coordinator.selectedOnboardingTranscriptionProviderKeyBinding(),

@@ -98,7 +98,9 @@ struct InsightSpeedRing: View {
         // empty lower half is cropped away.
         .frame(width: 138, height: 138)
         .padding(.horizontal, 6)
-        .frame(height: 75, alignment: .top)
+        // 69 to the equator plus the half-stroke and caps below it, with a
+        // little slack so antialiasing never shaves the cap bottoms flat.
+        .frame(height: 78, alignment: .top)
         .clipped()
         // The caption sits in the dial's mouth, added after the crop so it is
         // not cut off by it.
@@ -158,10 +160,14 @@ private struct SpeedDial: Shape {
 
     func path(in rect: CGRect) -> Path {
         let clamped = max(0, min(progress, 1))
+        // Inset by half the stroke width, or the stroke pokes outside the
+        // frame: the crown gets clipped flat and the round end caps get
+        // sliced by the crop below.
+        let inset = rect.insetBy(dx: 6, dy: 6)
         // The top half of the circle is the second quarter through the third,
         // i.e. trim fractions 0.5 through 1.0 after no rotation.
         return Circle()
             .trim(from: 0.5, to: 0.5 + 0.5 * clamped)
-            .path(in: rect)
+            .path(in: inset)
     }
 }

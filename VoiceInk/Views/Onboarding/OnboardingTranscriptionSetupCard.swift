@@ -3,6 +3,8 @@ import SwiftUI
 
 struct OnboardingTranscriptionSetupCard: View {
     let localModel: FluidAudioModel?
+    /// Every other on-device model, offered behind "See more local models".
+    var alternativeLocalModels: [FluidAudioModel] = []
     let setupKind: OnboardingTranscriptionSetupKind
     let providerOptions: [any CloudProvider]
     @Binding var selectedProviderKey: String
@@ -11,9 +13,14 @@ struct OnboardingTranscriptionSetupCard: View {
     let localDownloadStatus: FluidAudioDownloadStatus?
     let onSelectSetupKind: (OnboardingTranscriptionSetupKind) -> Void
     let onDownloadLocalModel: (FluidAudioModel) -> Void
+    var onSelectLocalModel: ((FluidAudioModel) -> Void)? = nil
+    /// Whether a given alternative is already on disk, so its row can say
+    /// "Use" instead of "Download".
+    var isLocalModelDownloaded: ((FluidAudioModel) -> Bool)? = nil
     let onVerificationChanged: () -> Void
 
     @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
+    @State private var isShowingMoreModels = false
     @State private var apiKey = ""
     @State private var isVerifying = false
     @State private var verificationMessage: String?
@@ -117,9 +124,91 @@ struct OnboardingTranscriptionSetupCard: View {
                     onDownloadLocalModel(localModel)
                 }
             )
+
+            if !alternativeLocalModels.isEmpty {
+                moreModelsSection
+            }
         } else {
             missingModelPanel
         }
+    }
+
+    /// The rest of the on-device catalog, collapsed by default so the screen
+    /// stays a one-decision page for anyone happy with the recommendation.
+    private var moreModelsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isShowingMoreModels.toggle()
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .rotationEffect(.degrees(isShowingMoreModels ? 90 : 0))
+
+                    Text(isShowingMoreModels ? "Fewer local models" : "See more local models")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundColor(AppTheme.Text.secondary)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isShowingMoreModels {
+                VStack(spacing: 6) {
+                    ForEach(alternativeLocalModels, id: \.name) { model in
+                        alternativeModelRow(model)
+                    }
+                }
+                .transition(.opacity)
+            }
+        }
+    }
+
+    private func alternativeModelRow(_ model: FluidAudioModel) -> some View {
+        let isDownloaded = isLocalModelDownloaded?(model) ?? false
+
+        return HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.displayName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(AppTheme.Text.primary)
+
+                Text(alternativeModelDetail(model, isDownloaded: isDownloaded))
+                    .font(.system(size: 11))
+                    .foregroundColor(AppTheme.Text.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            Button {
+                // Switching makes this the model the rest of onboarding works
+                // with; if it is not on disk yet the main card takes over with
+                // its download button and progress.
+                onSelectLocalModel?(model)
+            } label: {
+                Text(isDownloaded ? "Use" : "Choose")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(AppTheme.Text.primary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(AppTheme.Surface.controlActive))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(AppMaterialCardBackground(cornerRadius: 10))
+    }
+
+    private func alternativeModelDetail(_ model: FluidAudioModel, isDownloaded: Bool) -> String {
+        let language =
+            model.supportedLanguages.count > 1
+            ? String(localized: "multilingual") : String(localized: "English")
+        let state = isDownloaded ? String(localized: ", downloaded") : ""
+        return "\(model.size), \(language)\(state)"
     }
 
     private var missingModelPanel: some View {

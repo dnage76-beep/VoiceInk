@@ -149,9 +149,14 @@ enum OnboardingExperienceCatalog {
             kind: .dictation,
             starterModeKind: .clean,
             defaultModeKind: .clean,
+            // Fn is seeded at launch and nothing clears it: clearsOnIntro used
+            // to delete the seeded key here as a teaching moment, which turned
+            // the one-key design into a mandatory "choose a shortcut" question.
+            // The intro still shows (it carries the recorder-style picker), but
+            // now it states the configured key instead of asking for one.
             shortcutBehavior: .primaryRecording(
                 skipsIntroWhenConfigured: false,
-                clearsOnIntro: true
+                clearsOnIntro: false
             ),
             requiresVerifiedAPIProvider: false,
             systemImage: "text.cursor",

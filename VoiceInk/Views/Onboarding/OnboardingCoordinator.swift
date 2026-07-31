@@ -389,13 +389,33 @@ final class OnboardingCoordinator: ObservableObject {
         return onboardingProviderOptions.first ?? .groq
     }
 
+    /// Every on-device model onboarding can offer, for the "see more" list.
+    var localTranscriptionModelChoices: [FluidAudioModel] {
+        TranscriptionModelRegistry.models.compactMap { $0 as? FluidAudioModel }
+    }
+
+    /// The default the model screen leads with. V2 over V3 deliberately:
+    /// English-only, a touch lighter to load and run, and dictation here is
+    /// English. Everything else stays available behind "see more".
+    var recommendedTranscriptionModel: FluidAudioModel? {
+        localTranscriptionModelChoices.first { $0.name == "parakeet-tdt-0.6b-v2" }
+    }
+
+    /// Set when the user picks something other than the recommendation from
+    /// the "see more" list. Nil means the recommendation.
+    @Published var selectedLocalModelName: String?
+
+    /// The local model onboarding is actually working with: the user's pick,
+    /// or the recommendation. Download state, readiness, and the seeded modes
+    /// all key off this.
     var requiredTranscriptionModel: FluidAudioModel? {
-        TranscriptionModelRegistry.models
-            .compactMap { $0 as? FluidAudioModel }
-            // V2 over V3 deliberately: English-only, a touch lighter at load
-            // and runtime, and dictation here is English. V3's 25 languages
-            // are available later from the AI Models page.
-            .first { $0.name == "parakeet-tdt-0.6b-v2" }
+        if let selectedLocalModelName,
+            let selected = localTranscriptionModelChoices.first(where: { $0.name == selectedLocalModelName })
+        {
+            return selected
+        }
+
+        return recommendedTranscriptionModel
     }
 
     func selectedOnboardingTranscriptionProviderKeyBinding() -> Binding<String> {

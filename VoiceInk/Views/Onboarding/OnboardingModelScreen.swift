@@ -3,6 +3,9 @@ import SwiftUI
 struct OnboardingModelScreen: View {
     let contentMaxWidth: CGFloat
     let localModel: FluidAudioModel?
+    var alternativeLocalModels: [FluidAudioModel] = []
+    var onSelectLocalModel: ((FluidAudioModel) -> Void)? = nil
+    var isLocalModelDownloaded: ((FluidAudioModel) -> Bool)? = nil
     let setupKind: OnboardingTranscriptionSetupKind
     let providerOptions: [any CloudProvider]
     @Binding var selectedProviderKey: String
@@ -23,6 +26,7 @@ struct OnboardingModelScreen: View {
         ) {
             OnboardingTranscriptionSetupCard(
                 localModel: localModel,
+                alternativeLocalModels: alternativeLocalModels,
                 setupKind: setupKind,
                 providerOptions: providerOptions,
                 selectedProviderKey: $selectedProviderKey,
@@ -31,6 +35,8 @@ struct OnboardingModelScreen: View {
                 localDownloadStatus: localDownloadStatus,
                 onSelectSetupKind: onSelectSetupKind,
                 onDownloadLocalModel: onDownload,
+                onSelectLocalModel: onSelectLocalModel,
+                isLocalModelDownloaded: isLocalModelDownloaded,
                 onVerificationChanged: onVerificationChanged
             )
         } bottomBar: {
