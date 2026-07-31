@@ -2,7 +2,11 @@ import AppKit
 import Foundation
 
 enum StarterModeFactory {
-    static let defaultTranscriptionModelName = "parakeet-tdt-0.6b-v3"
+    // Must match the model onboarding recommends: modes installed outside the
+    // onboarding flow (FreshInstallDefaults at completion) fall back to this,
+    // and a mismatch pins them to a model that is not on disk, which surfaces
+    // as "<mode> can't transcribe" errors on a fresh install.
+    static let defaultTranscriptionModelName = "parakeet-tdt-0.6b-v2"
 
     static func install(
         kinds: [StarterModeKind],
