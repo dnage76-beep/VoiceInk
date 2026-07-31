@@ -90,31 +90,48 @@ struct FluidAudioModelCardView: View {
     private var progressSection: some View {
         Group {
             if let status = fluidAudioModelManager.downloadStatus(for: model) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(status.message)
-                            .lineLimit(1)
+                if let failure = status.failure {
+                    // A failure is not progress: a 0% bar under the message
+                    // reads as a hung download rather than a stopped one.
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(AppTheme.Status.warningStrong)
 
-                        if status.isIndeterminate {
-                            ProgressView()
-                                .controlSize(.small)
-                                .scaleEffect(0.65)
-                        }
-
-                        Spacer()
-
-                        Text(status.fractionCompleted, format: .percent.precision(.fractionLength(0)))
-                            .fontDesign(.monospaced)
+                        Text(failure)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color(.secondaryLabelColor))
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color(.secondaryLabelColor))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 8)
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(status.message)
+                                .lineLimit(1)
 
-                    ProgressView(value: status.fractionCompleted)
-                        .progressViewStyle(LinearProgressViewStyle())
+                            if status.isIndeterminate {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .scaleEffect(0.65)
+                            }
+
+                            Spacer()
+
+                            Text(status.fractionCompleted, format: .percent.precision(.fractionLength(0)))
+                                .fontDesign(.monospaced)
+                        }
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(Color(.secondaryLabelColor))
+
+                        ProgressView(value: status.fractionCompleted)
+                            .progressViewStyle(LinearProgressViewStyle())
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 8)
+                    .animation(.smooth, value: status.fractionCompleted)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 8)
-                .animation(.smooth, value: status.fractionCompleted)
             }
         }
     }
