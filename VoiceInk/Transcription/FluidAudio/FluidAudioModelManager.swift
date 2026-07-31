@@ -7,17 +7,32 @@ struct FluidAudioDownloadStatus {
     let fractionCompleted: Double
     let message: String
     let isIndeterminate: Bool
+    /// Set when the download stopped because something went wrong. Without
+    /// this the progress bar just disappeared and the screen fell back to
+    /// "not downloaded", which read as the app silently doing nothing.
+    let failure: String?
 
-    init(fractionCompleted: Double, message: String, isIndeterminate: Bool = false) {
+    var hasFailed: Bool { failure != nil }
+
+    init(
+        fractionCompleted: Double,
+        message: String,
+        isIndeterminate: Bool = false,
+        failure: String? = nil
+    ) {
         self.fractionCompleted = fractionCompleted
         self.message = message
         self.isIndeterminate = isIndeterminate
+        self.failure = failure
     }
 }
 
 @MainActor
 class FluidAudioModelManager: ObservableObject {
     @Published private var downloadStatuses: [String: FluidAudioDownloadStatus] = [:]
+    /// Outlives the in-flight status above, which is torn down by `defer` as
+    /// soon as the download stops for any reason.
+    @Published private var failedDownloads: [String: String] = [:]
     @Published private var modelStateRevision = 0
     private var activeDownloadIDs: [String: UUID] = [:]
     private var activeNetworkProgressIDs: [String: UUID] = [:]
@@ -173,7 +188,22 @@ class FluidAudioModelManager: ObservableObject {
     }
 
     func downloadStatus(for model: FluidAudioModel) -> FluidAudioDownloadStatus? {
-        downloadStatuses[model.name]
+        if let inFlight = downloadStatuses[model.name] {
+            return inFlight
+        }
+
+        guard let failure = failedDownloads[model.name] else { return nil }
+        return FluidAudioDownloadStatus(
+            fractionCompleted: 0,
+            message: failure,
+            failure: failure
+        )
+    }
+
+    /// Drops a previous failure so the card stops showing it. Called when the
+    /// user retries or dismisses.
+    func clearDownloadFailure(for model: FluidAudioModel) {
+        failedDownloads[model.name] = nil
     }
 
     // MARK: - Download
@@ -185,6 +215,8 @@ class FluidAudioModelManager: ObservableObject {
 
         let modelName = model.name
         let downloadID = UUID()
+        // A retry starts clean: any previous failure stops being shown.
+        failedDownloads[modelName] = nil
         activeDownloadIDs[modelName] = downloadID
         activeNetworkProgressIDs[modelName] = downloadID
         downloadStatuses[modelName] = FluidAudioDownloadStatus(
@@ -252,7 +284,44 @@ class FluidAudioModelManager: ObservableObject {
             modelStateRevision += 1
         } catch {
             logger.error("❌ FluidAudio download failed for \(modelName, privacy: .public): \(error, privacy: .public)")
+            recordDownloadFailure(error, for: modelName, downloadID: downloadID)
         }
+    }
+
+    /// Leaves a visible, retryable failure on the model card. Cleared when the
+    /// user starts another download, or when they dismiss it.
+    private func recordDownloadFailure(_ error: Error, for modelName: String, downloadID: UUID) {
+        guard activeDownloadIDs[modelName] == downloadID else { return }
+        failedDownloads[modelName] = Self.userFacingMessage(for: error)
+    }
+
+    /// Turns a thrown error into something a person can act on. The underlying
+    /// errors are URLSession and model-loading failures whose raw text is not
+    /// useful to someone just trying to set the app up.
+    static func userFacingMessage(for error: Error) -> String {
+        let nsError = error as NSError
+
+        if nsError.domain == NSURLErrorDomain {
+            switch nsError.code {
+            case NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost:
+                return String(localized: "No internet connection. Reconnect and try again.")
+            case NSURLErrorTimedOut:
+                return String(localized: "The download timed out. Check your connection and try again.")
+            case NSURLErrorCancelled:
+                return String(localized: "The download was cancelled.")
+            default:
+                return String(localized: "The download failed. Check your connection and try again.")
+            }
+        }
+
+        if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileWriteOutOfSpaceError {
+            return String(localized: "Not enough disk space to install this model.")
+        }
+
+        return String(
+            format: String(localized: "The download failed: %@"),
+            error.localizedDescription
+        )
     }
 
     nonisolated private static func optimizeParakeetUnifiedRealtimeModel() async throws {

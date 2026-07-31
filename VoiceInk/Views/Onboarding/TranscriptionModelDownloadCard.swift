@@ -13,7 +13,11 @@ struct TranscriptionModelDownloadCard: View {
             modelMetadata
 
             if let status {
-                progressPanel(status)
+                if let failure = status.failure {
+                    failurePanel(failure)
+                } else {
+                    progressPanel(status)
+                }
             }
         }
         .padding(18)
@@ -120,6 +124,31 @@ struct TranscriptionModelDownloadCard: View {
         .animation(.smooth, value: status.fractionCompleted)
     }
 
+    /// Shown when a download stopped because something went wrong. Says what
+    /// happened and leaves the button as the obvious next move; previously this
+    /// state was invisible and the card just looked untouched.
+    private func failurePanel(_ failure: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 11))
+                .foregroundColor(AppTheme.Status.warningStrong)
+
+            Text(failure)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(AppTheme.Text.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(AppTheme.Status.warningStrong.opacity(0.10))
+        )
+        .accessibilityElement(children: .combine)
+    }
+
     private var downloadButton: some View {
         Button(action: onDownload) {
             HStack(spacing: 6) {
@@ -155,6 +184,10 @@ struct TranscriptionModelDownloadCard: View {
     private var downloadButtonTitle: LocalizedStringKey {
         if isDownloading {
             return "Downloading..."
+        }
+
+        if status?.hasFailed == true {
+            return "Try Again"
         }
 
         if status != nil {
