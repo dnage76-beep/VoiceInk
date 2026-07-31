@@ -12,7 +12,8 @@ set -euo pipefail
 
 REPO="dnage76-beep/VoiceInk"
 APP_NAME="VoiceInk.app"
-APP_PATH="/Applications/${APP_NAME}"
+INSTALL_DIR="/Applications"
+APP_PATH="${INSTALL_DIR}/${APP_NAME}"
 
 bold() { printf '\033[1m%s\033[0m\n' "$1"; }
 info() { printf '  %s\n' "$1"; }
@@ -58,6 +59,13 @@ if pgrep -x "VoiceInk" >/dev/null 2>&1; then
     pgrep -x "VoiceInk" >/dev/null 2>&1 && die "VoiceInk is still running. Quit it and re-run this."
 fi
 
+# An earlier run may have landed in ~/Applications, so keep updating whichever
+# copy the user actually has instead of leaving two behind.
+if [[ ! -d "$APP_PATH" && -d "${HOME}/Applications/${APP_NAME}" ]]; then
+    INSTALL_DIR="${HOME}/Applications"
+    APP_PATH="${INSTALL_DIR}/${APP_NAME}"
+fi
+
 IS_UPGRADE=false
 [[ -d "$APP_PATH" ]] && IS_UPGRADE=true
 
@@ -79,7 +87,6 @@ ok "downloaded ($(( dmg_size / 1048576 )) MB)"
 
 # --- Install ------------------------------------------------------------------
 
-info "Installing to /Applications..."
 MOUNT_POINT="${WORK_DIR}/mnt"
 mkdir -p "$MOUNT_POINT"
 hdiutil attach "$DMG_PATH" -nobrowse -quiet -mountpoint "$MOUNT_POINT" \
@@ -87,9 +94,54 @@ hdiutil attach "$DMG_PATH" -nobrowse -quiet -mountpoint "$MOUNT_POINT" \
 
 [[ -d "${MOUNT_POINT}/${APP_NAME}" ]] || die "The disk image did not contain ${APP_NAME}."
 
-rm -rf "$APP_PATH"
+# /Applications is owned by root:admin, so only administrator accounts can
+# write to it. On a standard account (or when an existing copy was installed
+# by a different user) the copy below fails, which is why we check first and
+# fall back to the user's own ~/Applications rather than dying.
+can_install_to() {
+    local target_dir="$1"
+    local existing="${target_dir}/${APP_NAME}"
+
+    [[ -d "$target_dir" ]] || return 1
+    [[ -w "$target_dir" ]] || return 1
+    # Replacing an existing copy needs to delete it, which needs write access
+    # to the bundle itself, not just to the folder holding it.
+    if [[ -e "$existing" && ! -w "$existing" ]]; then
+        return 1
+    fi
+    return 0
+}
+
+if ! can_install_to "$INSTALL_DIR"; then
+    USER_APPS="${HOME}/Applications"
+    mkdir -p "$USER_APPS" 2>/dev/null || true
+
+    if can_install_to "$USER_APPS"; then
+        info "No permission to write to /Applications (that needs an admin account)."
+        info "Installing to ${USER_APPS} instead."
+        INSTALL_DIR="$USER_APPS"
+        APP_PATH="${INSTALL_DIR}/${APP_NAME}"
+    else
+        die "Cannot write to /Applications or ~/Applications.
+       /Applications needs an administrator account. Either ask an admin to
+       run this, or install by hand: open the DMG and drag VoiceInk to your
+       Applications folder.
+       DMG: https://github.com/${REPO}/releases/latest"
+    fi
+fi
+
+info "Installing to ${INSTALL_DIR}..."
+
+# Remove the old copy explicitly so a permissions problem is reported here
+# rather than surfacing as a confusing half-finished copy.
+if [[ -e "$APP_PATH" ]]; then
+    rm -rf "$APP_PATH" 2>/dev/null \
+        || die "Could not replace the existing VoiceInk at ${APP_PATH}. Quit VoiceInk and try again, or delete it by hand and re-run this."
+fi
+
 # ditto preserves the code signature; cp -R does not reliably.
-ditto "${MOUNT_POINT}/${APP_NAME}" "$APP_PATH" || die "Could not copy into /Applications."
+ditto "${MOUNT_POINT}/${APP_NAME}" "$APP_PATH" \
+    || die "Could not copy VoiceInk into ${INSTALL_DIR}. If this is a work Mac, its management software may block installs there."
 
 hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
 MOUNT_POINT=""
