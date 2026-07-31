@@ -4,8 +4,6 @@ enum StarterModeKind: String, CaseIterable, Identifiable {
     case clean
     case enhance
     case email
-    case rewrite
-    case assistant
     case coding
     case texting
 
@@ -92,36 +90,6 @@ enum StarterModeCatalog {
             usesAIEnhancement: true,
             useSelectedTextContext: true,
             useScreenCapture: true,
-            isDefault: false
-        ),
-        StarterModeTemplate(
-            kind: .rewrite,
-            id: UUID(uuidString: "10000000-0000-0000-0000-000000000004")!,
-            name: "Rewrite",
-            icon: .symbol("quote.bubble.fill"),
-            description: "Rewrite selected or dictated text with better clarity.",
-            guidance:
-                "Use this when you have text selected and want a stronger version. The selected text is available as context for the rewrite.",
-            promptId: PromptTemplates.rewritePromptId,
-            outputMode: .paste,
-            usesAIEnhancement: true,
-            useSelectedTextContext: true,
-            useScreenCapture: false,
-            isDefault: false
-        ),
-        StarterModeTemplate(
-            kind: .assistant,
-            id: UUID(uuidString: "10000000-0000-0000-0000-000000000005")!,
-            name: "Assistant",
-            icon: .symbol("bubble.left.and.bubble.right.fill"),
-            description: "Ask a question and keep the answer in the recorder.",
-            guidance:
-                "Use this for answers, summaries, and follow-ups. Instead of pasting, VoiceInk keeps the conversation inside the recorder.",
-            promptId: PromptTemplates.assistantPromptId,
-            outputMode: .respond,
-            usesAIEnhancement: true,
-            useSelectedTextContext: false,
-            useScreenCapture: false,
             isDefault: false
         ),
         StarterModeTemplate(

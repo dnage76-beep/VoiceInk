@@ -48,32 +48,6 @@ struct SettingsView: View {
                     }
                 }
 
-                if recordingShortcutManager.secondaryRecordingShortcut != .none {
-                    LabeledContent("Secondary Shortcut") {
-                        HStack(spacing: 8) {
-                            Spacer()
-                            shortcutModePicker(binding: $recordingShortcutManager.secondaryRecordingShortcutMode)
-                            ShortcutRecorder(action: .secondaryRecording) {
-                                recordingShortcutManager.secondaryRecordingShortcut = .custom
-                                recordingShortcutManager.updateShortcutStatus()
-                            }
-                            .controlSize(.small)
-                            Button {
-                                withAnimation { recordingShortcutManager.secondaryRecordingShortcut = .none }
-                            } label: {
-                                Image(systemName: "minus.circle.fill")
-                                    .foregroundColor(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-
-                if recordingShortcutManager.secondaryRecordingShortcut == .none {
-                    Button("Add Second Shortcut") {
-                        withAnimation { recordingShortcutManager.secondaryRecordingShortcut = .custom }
-                    }
-                }
             } header: {
                 Text("Shortcuts")
             }

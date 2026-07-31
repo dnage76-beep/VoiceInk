@@ -34,7 +34,7 @@ struct TranscriptionModelDownloadCard: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(AppTheme.Text.primary)
 
-                    Text("Fast multilingual transcription that runs locally on Mac.")
+                    Text(modelSubtitle)
                         .font(.system(size: 12))
                         .foregroundColor(AppTheme.Text.secondary)
                         .lineLimit(1)
@@ -71,10 +71,27 @@ struct TranscriptionModelDownloadCard: View {
             .accessibilityLabel(Text(verbatim: "NVIDIA"))
     }
 
+    /// True when the model handles more than one language. The card used to
+    /// hardcode "25+ languages", which was wrong the moment the recommended
+    /// model became the English-only V2.
+    private var isMultilingual: Bool {
+        model.supportedLanguages.count > 1
+    }
+
+    private var modelSubtitle: LocalizedStringKey {
+        isMultilingual
+            ? "Fast multilingual transcription that runs locally on Mac."
+            : "Fast English transcription that runs locally on Mac."
+    }
+
     private var modelMetadata: some View {
         HStack(spacing: 6) {
             metadataPill(model.size)
-            localizedMetadataPill("25+ languages")
+            if isMultilingual {
+                localizedMetadataPill("25+ languages")
+            } else {
+                localizedMetadataPill("English")
+            }
             localizedMetadataPill("Local")
         }
     }

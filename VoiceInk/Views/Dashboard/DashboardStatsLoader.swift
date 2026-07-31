@@ -62,6 +62,16 @@ enum DashboardStatsLoader {
             var lastThirtyDayEnhancedCount = 0
             var thisYearEnhancedCount = 0
             var totalEnhancedCount = 0
+            // Which apps the dictated text was headed for. Only sessions
+            // recorded after app capture shipped carry this, so the unattributed
+            // tally is kept to explain a partial picture rather than hide one.
+            var appUsage: [String: DashboardAppUsageAccumulator] = [:]
+            var unattributedSessionCount = 0
+            // One entry per active day, for the contribution-style grid.
+            var wordsByDay: [Date: Int] = [:]
+            // Recording time per day, paired with wordsByDay to find the best
+            // speaking rate the user has ever sustained over a full day.
+            var durationByDay: [Date: TimeInterval] = [:]
             let windows = DashboardPeriodWindows()
             let now = windows.now
             let calendar = windows.calendar
@@ -158,6 +168,9 @@ enum DashboardStatsLoader {
 
                     let metricDay = calendar.startOfDay(for: metric.timestamp)
                     activeDays.insert(metricDay)
+                    wordsByDay[metricDay, default: 0] += metric.wordCount
+                    durationByDay[metricDay, default: 0] += metric.audioDuration
+                    accumulateAppUsage(for: metric, into: &appUsage, unattributed: &unattributedSessionCount)
                     if let weekIndex = sevenDayIndices[metricDay] {
                         lastSevenDayProductivity[weekIndex].words += metric.wordCount
                     }
@@ -332,7 +345,17 @@ enum DashboardStatsLoader {
                 recentSevenDayEnhancedCount: recentSevenDayEnhancedCount,
                 lastThirtyDayEnhancedCount: lastThirtyDayEnhancedCount,
                 thisYearEnhancedCount: thisYearEnhancedCount,
-                totalEnhancedCount: totalEnhancedCount
+                totalEnhancedCount: totalEnhancedCount,
+                appUsage: Self.appUsageSummary(
+                    from: appUsage,
+                    unattributedSessionCount: unattributedSessionCount
+                ),
+                wordsByDay: wordsByDay,
+                bestDayWordCount: wordsByDay.values.max() ?? 0,
+                bestWordsPerMinute: Self.bestWordsPerMinute(
+                    wordsByDay: wordsByDay,
+                    durationByDay: durationByDay
+                )
             )
         }
 
@@ -597,6 +620,92 @@ enum DashboardStatsLoader {
         )
     }
 
+    /// The best speaking rate sustained across a whole day.
+    ///
+    /// Measured per day rather than per session on purpose: a single six-word
+    /// burst can score absurdly high, and a "personal best" the user can never
+    /// beat again is worse than no number. Days under a minute of total audio
+    /// are ignored for the same reason.
+    static func bestWordsPerMinute(
+        wordsByDay: [Date: Int],
+        durationByDay: [Date: TimeInterval]
+    ) -> Int? {
+        var best: Int?
+
+        for (day, words) in wordsByDay {
+            guard let duration = durationByDay[day], duration >= 60, words > 0 else { continue }
+            let rate = Int((Double(words) / (duration / 60)).rounded())
+            if rate > (best ?? 0) {
+                best = rate
+            }
+        }
+
+        return best
+    }
+
+    /// Files one session under the app it was dictated into. Sessions recorded
+    /// before app capture shipped have no app, and are counted separately so the
+    /// card can say so rather than silently under-reporting.
+    private static func accumulateAppUsage(
+        for metric: SessionMetric,
+        into appUsage: inout [String: DashboardAppUsageAccumulator],
+        unattributed: inout Int
+    ) {
+        // Fall back to the display name when a bundle ID is missing, so an app
+        // that reports only one of the two is still charted.
+        guard let key = metric.targetAppBundleID ?? metric.targetAppName, !key.isEmpty else {
+            unattributed += 1
+            return
+        }
+
+        let displayName = metric.targetAppName ?? metric.targetAppBundleID ?? key
+        appUsage[
+            key,
+            default: DashboardAppUsageAccumulator(
+                bundleID: metric.targetAppBundleID,
+                name: displayName
+            )
+        ].add(words: metric.wordCount)
+    }
+
+    private static func appUsageSummary(
+        from appUsage: [String: DashboardAppUsageAccumulator],
+        unattributedSessionCount: Int
+    ) -> DashboardAppUsageSummary {
+        let apps =
+            appUsage.values
+            .map { $0.usage() }
+            .sorted { lhs, rhs in
+                if lhs.wordCount == rhs.wordCount {
+                    return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+                }
+                return lhs.wordCount > rhs.wordCount
+            }
+
+        var byCategory: [DictationCategory: (sessions: Int, words: Int)] = [:]
+        for app in apps {
+            byCategory[app.category, default: (0, 0)].sessions += app.sessionCount
+            byCategory[app.category, default: (0, 0)].words += app.wordCount
+        }
+
+        let categories =
+            byCategory
+            .map { category, totals in
+                CategoryDictationUsage(
+                    category: category,
+                    sessionCount: totals.sessions,
+                    wordCount: totals.words
+                )
+            }
+            .sorted { $0.category.sortIndex < $1.category.sortIndex }
+
+        return DashboardAppUsageSummary(
+            apps: apps,
+            categories: categories,
+            unattributedSessionCount: unattributedSessionCount
+        )
+    }
+
     private static func peakHoursSummary(from peakHours: [Int: DashboardPeakHourAccumulator])
         -> DashboardPeakHoursSummary
     {
@@ -732,6 +841,28 @@ private struct DashboardPeakHourAccumulator {
             sessionCount: sessionCount,
             audioDuration: audioDuration,
             activeDayCount: activeDays.count
+        )
+    }
+}
+
+private struct DashboardAppUsageAccumulator {
+    var bundleID: String?
+    var name: String
+    var wordCount = 0
+    var sessionCount = 0
+
+    mutating func add(words: Int) {
+        wordCount += words
+        sessionCount += 1
+    }
+
+    func usage() -> AppDictationUsage {
+        AppDictationUsage(
+            bundleID: bundleID,
+            name: name,
+            category: DictationCategory.category(forBundleID: bundleID),
+            sessionCount: sessionCount,
+            wordCount: wordCount
         )
     }
 }

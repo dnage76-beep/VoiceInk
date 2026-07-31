@@ -392,7 +392,10 @@ final class OnboardingCoordinator: ObservableObject {
     var requiredTranscriptionModel: FluidAudioModel? {
         TranscriptionModelRegistry.models
             .compactMap { $0 as? FluidAudioModel }
-            .first { $0.name == "parakeet-tdt-0.6b-v3" }
+            // V2 over V3 deliberately: English-only, a touch lighter at load
+            // and runtime, and dictation here is English. V3's 25 languages
+            // are available later from the AI Models page.
+            .first { $0.name == "parakeet-tdt-0.6b-v2" }
     }
 
     func selectedOnboardingTranscriptionProviderKeyBinding() -> Binding<String> {

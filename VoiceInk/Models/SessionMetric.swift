@@ -17,6 +17,14 @@ final class SessionMetric {
     var aiEnhancementModelName: String?
     var enhancementDuration: TimeInterval?
     var enhancementEstimatedTokenCount: Int?
+    /// Bundle identifier of whatever app was frontmost when the recording
+    /// started, e.g. "com.apple.mail". Optional because every session recorded
+    /// before this shipped has no value, and because the frontmost app is not
+    /// always knowable. Never leaves the Mac.
+    var targetAppBundleID: String?
+    /// Human-readable name for the same app, stored alongside the bundle ID so
+    /// the dashboard can label a row for an app that has since been uninstalled.
+    var targetAppName: String?
 
     init(
         transcriptionId: UUID,
@@ -30,7 +38,9 @@ final class SessionMetric {
         modeName: String?,
         aiEnhancementModelName: String?,
         enhancementDuration: TimeInterval?,
-        enhancementEstimatedTokenCount: Int? = nil
+        enhancementEstimatedTokenCount: Int? = nil,
+        targetAppBundleID: String? = nil,
+        targetAppName: String? = nil
     ) {
         self.id = UUID()
         self.transcriptionId = transcriptionId
@@ -45,5 +55,7 @@ final class SessionMetric {
         self.aiEnhancementModelName = aiEnhancementModelName
         self.enhancementDuration = enhancementDuration
         self.enhancementEstimatedTokenCount = enhancementEstimatedTokenCount
+        self.targetAppBundleID = targetAppBundleID
+        self.targetAppName = targetAppName
     }
 }

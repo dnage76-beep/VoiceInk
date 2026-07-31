@@ -646,7 +646,10 @@ struct ModeConfigFormView: View {
     }
 
     private var canRespond: Bool {
-        draft.isAIEnhancementEnabled && selectedPrompt != nil && configuredSelectedAIProvider != nil
+        // Respond (answering in the recorder) is cut from the product: VoiceInk
+        // types what you said, cleaned up; it never answers. The plumbing stays
+        // so an old mode saved as Respond quietly migrates back to Paste here.
+        false
     }
 
     private func applyOutputRules() {
@@ -664,7 +667,7 @@ struct ModeConfigFormView: View {
                 HStack(spacing: 4) {
                     Text("Output")
                     InfoTip(
-                        "What happens with the finished text. Paste types it where your cursor is. Respond shows the model's reply in the recorder instead of pasting, for asking questions out loud. Custom Command pipes the text into a script you write.\n\nRespond needs AI Enhancement on with a prompt and provider set, so it only appears once those are in place."
+                        "What happens with the finished text. Paste types it where your cursor is. Custom Command pipes the text into a script you write."
                     )
                 }
             }

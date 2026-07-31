@@ -103,10 +103,6 @@ enum BackupImporter {
             ShortcutStore.setShortcut(shortcut.shortcut, for: .primaryRecording)
             recordingShortcutManager.primaryRecordingShortcut = .custom
         }
-        if let shortcut2 = general.secondaryRecordingShortcut {
-            ShortcutStore.setShortcut(shortcut2.shortcut, for: .secondaryRecording)
-            recordingShortcutManager.secondaryRecordingShortcut = .custom
-        }
         if let pasteShortcut = general.pasteLastTranscriptionShortcut {
             ShortcutStore.setShortcut(pasteShortcut.shortcut, for: .pasteLastTranscription)
         }
@@ -131,20 +127,10 @@ enum BackupImporter {
         {
             recordingShortcutManager.primaryRecordingShortcut = shortcut
         }
-        if let secondaryShortcutRawValue = general.secondaryRecordingShortcutRawValue,
-            let secondaryShortcut = RecordingShortcutManager.ShortcutSelection(rawValue: secondaryShortcutRawValue)
-        {
-            recordingShortcutManager.secondaryRecordingShortcut = secondaryShortcut
-        }
         if let modeRawValue = general.primaryRecordingShortcutModeRawValue,
             let mode = RecordingShortcutManager.Mode(rawValue: modeRawValue)
         {
             recordingShortcutManager.primaryRecordingShortcutMode = mode
-        }
-        if let secondaryModeRawValue = general.secondaryRecordingShortcutModeRawValue,
-            let secondaryMode = RecordingShortcutManager.Mode(rawValue: secondaryModeRawValue)
-        {
-            recordingShortcutManager.secondaryRecordingShortcutMode = secondaryMode
         }
         if let middleClickEnabled = general.isMiddleClickToggleEnabled {
             recordingShortcutManager.isMiddleClickToggleEnabled = middleClickEnabled

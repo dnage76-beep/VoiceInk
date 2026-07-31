@@ -33,7 +33,6 @@ class SystemInfoService {
 
             HOTKEY SETTINGS:
             Primary Shortcut: \(getPrimaryShortcut())
-            Secondary Shortcut: \(getSecondaryShortcut())
             Middle-Click Recording: \(UserDefaults.standard.bool(forKey: "isMiddleClickToggleEnabled"))
             Middle-Click Activation Delay: \(UserDefaults.standard.integer(forKey: "middleClickActivationDelay")) ms
 
@@ -150,10 +149,6 @@ class SystemInfoService {
 
     private func getPrimaryShortcut() -> String {
         shortcutDescription(for: .primaryRecording)
-    }
-
-    private func getSecondaryShortcut() -> String {
-        shortcutDescription(for: .secondaryRecording)
     }
 
     private func shortcutDescription(for action: ShortcutAction) -> String {

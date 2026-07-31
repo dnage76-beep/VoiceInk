@@ -189,7 +189,7 @@ enum ShortcutMigration {
             return
         }
 
-        for action in [ShortcutAction.primaryRecording, .secondaryRecording] {
+        for action in [ShortcutAction.primaryRecording] {
             removeLegacyCustomRecordingShortcut(for: action)
         }
 
@@ -219,7 +219,7 @@ enum ShortcutMigration {
 
     private static func isRecordingShortcutAction(_ action: ShortcutAction) -> Bool {
         switch action {
-        case .primaryRecording, .secondaryRecording:
+        case .primaryRecording:
             return true
         default:
             return false
@@ -230,8 +230,6 @@ enum ShortcutMigration {
         switch action {
         case .primaryRecording:
             return "CustomRecordingShortcut_primary"
-        case .secondaryRecording:
-            return "CustomRecordingShortcut_secondary"
         default:
             return "CustomRecordingShortcut_\(action.storageName)"
         }
@@ -255,8 +253,6 @@ enum ShortcutMigration {
         switch action {
         case .primaryRecording:
             return ["toggleMiniRecorder"]
-        case .secondaryRecording:
-            return ["toggleMiniRecorder2"]
         case .pasteLastTranscription:
             return ["pasteLastTranscription"]
         case .pasteLastEnhancement:
@@ -280,8 +276,6 @@ enum ShortcutMigration {
         switch action {
         case .primaryRecording:
             return "primaryRecordingShortcut"
-        case .secondaryRecording:
-            return "secondaryRecordingShortcut"
         default:
             return action.userDefaultsKey
         }
@@ -291,8 +285,6 @@ enum ShortcutMigration {
         switch action {
         case .primaryRecording:
             return "selectedHotkey1"
-        case .secondaryRecording:
-            return "selectedHotkey2"
         default:
             return action.userDefaultsKey
         }
@@ -302,8 +294,6 @@ enum ShortcutMigration {
         switch action {
         case .primaryRecording:
             return "primaryRecordingShortcutMode"
-        case .secondaryRecording:
-            return "secondaryRecordingShortcutMode"
         default:
             return action.userDefaultsKey
         }
@@ -313,8 +303,6 @@ enum ShortcutMigration {
         switch action {
         case .primaryRecording:
             return "hotkeyMode1"
-        case .secondaryRecording:
-            return "hotkeyMode2"
         default:
             return action.userDefaultsKey
         }

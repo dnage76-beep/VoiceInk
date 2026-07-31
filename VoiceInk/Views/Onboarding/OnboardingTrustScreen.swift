@@ -11,6 +11,11 @@ struct OnboardingTrustScreen: View {
     let onBack: () -> Void
     let onContinue: () -> Void
 
+    /// The name the dashboard greets you by. Asked here instead of guessed
+    /// from the macOS account, whose "full name" is often a bare surname and
+    /// produced greetings like "Good morning, Nagel".
+    @AppStorage("dashboardDisplayName") private var displayName: String = ""
+
     var body: some View {
         OnboardingStepScreen(
             systemImage: "lock.shield",
@@ -26,13 +31,30 @@ struct OnboardingTrustScreen: View {
                 isEnhancementConfigured: isEnhancementConfigured
             )
         } bottomBar: {
-            OnboardingBottomBar(
-                leadingTitle: "Back",
-                primaryTitle: "Continue",
-                isPrimaryEnabled: true,
-                onLeading: onBack,
-                onPrimary: onContinue
-            )
+            VStack(spacing: 14) {
+                HStack(spacing: 8) {
+                    Text("How should VoiceInk greet you?")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(AppTheme.Text.secondary)
+
+                    TextField("First name", text: $displayName)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 160)
+                }
+
+                OnboardingBottomBar(
+                    leadingTitle: "Back",
+                    primaryTitle: "Continue",
+                    isPrimaryEnabled: true,
+                    onLeading: onBack,
+                    onPrimary: {
+                        // Trim so a stray space doesn't render as a blank name;
+                        // an empty field falls back to the account-name guess.
+                        displayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        onContinue()
+                    }
+                )
+            }
         }
     }
 }

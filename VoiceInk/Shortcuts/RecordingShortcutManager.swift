@@ -9,24 +9,10 @@ class RecordingShortcutManager: ObservableObject {
             refreshShortcutMonitoring()
         }
     }
-    @Published var secondaryRecordingShortcut: ShortcutSelection {
-        didSet {
-            if secondaryRecordingShortcut == .none {
-                ShortcutStore.setShortcut(nil, for: .secondaryRecording)
-            }
-            UserDefaults.standard.set(secondaryRecordingShortcut.rawValue, forKey: "secondaryRecordingShortcut")
-            refreshShortcutMonitoring()
-        }
-    }
     @Published var primaryRecordingShortcutMode: Mode {
         didSet {
             UserDefaults.standard.set(primaryRecordingShortcutMode.rawValue, forKey: "primaryRecordingShortcutMode")
             primaryRecordingShortcutModeSource.primaryMode = primaryRecordingShortcutMode
-        }
-    }
-    @Published var secondaryRecordingShortcutMode: Mode {
-        didSet {
-            UserDefaults.standard.set(secondaryRecordingShortcutMode.rawValue, forKey: "secondaryRecordingShortcutMode")
         }
     }
     @Published var isMiddleClickToggleEnabled: Bool {
@@ -96,18 +82,10 @@ class RecordingShortcutManager: ObservableObject {
             action: .primaryRecording,
             allowsNone: false
         )
-        self.secondaryRecordingShortcut = ShortcutMigration.migrateShortcutSelection(
-            action: .secondaryRecording,
-            allowsNone: true
-        )
-
         let primaryRecordingShortcutMode = ShortcutMigration.migrateShortcutMode(
             for: .primaryRecording
         )
         self.primaryRecordingShortcutMode = primaryRecordingShortcutMode
-        self.secondaryRecordingShortcutMode = ShortcutMigration.migrateShortcutMode(
-            for: .secondaryRecording
-        )
 
         self.isMiddleClickToggleEnabled = UserDefaults.standard.bool(forKey: "isMiddleClickToggleEnabled")
         self.middleClickActivationDelay = UserDefaults.standard.integer(forKey: "middleClickActivationDelay")
@@ -205,19 +183,12 @@ class RecordingShortcutManager: ObservableObject {
 
     private func refreshShortcutMonitor() {
         let primaryShortcut = primaryRecordingShortcut == .custom ? ShortcutStore.shortcut(for: .primaryRecording) : nil
-        let secondaryShortcut =
-            secondaryRecordingShortcut == .custom ? ShortcutStore.shortcut(for: .secondaryRecording) : nil
         var shortcuts = ShortcutStore.shortcuts(for: ShortcutAction.globalUtilityActions)
         var interruptibleRecordingActions = Set<ShortcutAction>()
 
         if let primaryShortcut {
             shortcuts[.primaryRecording] = primaryShortcut
             interruptibleRecordingActions.insert(.primaryRecording)
-        }
-
-        if let secondaryShortcut {
-            shortcuts[.secondaryRecording] = secondaryShortcut
-            interruptibleRecordingActions.insert(.secondaryRecording)
         }
 
         shortcutMonitor.start(
@@ -261,8 +232,6 @@ class RecordingShortcutManager: ObservableObject {
         switch action {
         case .primaryRecording:
             return primaryRecordingShortcutMode
-        case .secondaryRecording:
-            return secondaryRecordingShortcutMode
         default:
             return nil
         }
@@ -308,11 +277,7 @@ class RecordingShortcutManager: ObservableObject {
     }
 
     var isShortcutConfigured: Bool {
-        let isPrimaryShortcutConfigured =
-            primaryRecordingShortcut != .none && ShortcutStore.shortcut(for: .primaryRecording) != nil
-        let isSecondaryShortcutConfigured =
-            secondaryRecordingShortcut == .none || ShortcutStore.shortcut(for: .secondaryRecording) != nil
-        return isPrimaryShortcutConfigured && isSecondaryShortcutConfigured
+        primaryRecordingShortcut != .none && ShortcutStore.shortcut(for: .primaryRecording) != nil
     }
 
     func updateShortcutStatus() {

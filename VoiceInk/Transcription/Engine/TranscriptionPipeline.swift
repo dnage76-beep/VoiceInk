@@ -247,7 +247,8 @@ class TranscriptionPipeline {
                     didInsertSessionMetric = try SessionMetricRecorder.recordRecorderSession(
                         transcription: transcription,
                         model: model,
-                        in: modelContext
+                        in: modelContext,
+                        targetApp: SessionMetricRecorder.currentTargetApp()
                     )
                 } catch {
                     logger.error("Failed to record session metric: \(error, privacy: .public)")

@@ -121,7 +121,9 @@ enum FreshInstallDefaults {
         enhancementService: AIEnhancementService,
         enhanceByDefault: Bool
     ) {
-        let desiredKinds: [StarterModeKind] = [.clean, .email, .rewrite, .coding, .texting]
+        // Dictation-only lineup: no Rewrite, no Assistant. VoiceInk types what
+        // you said, cleaned up; it never answers.
+        let desiredKinds: [StarterModeKind] = [.clean, .email, .coding, .texting]
         let installedKinds = StarterModeCatalog.templates
             .map(\.kind)
             .filter { StarterModeFactory.isInstalled(kind: $0) }

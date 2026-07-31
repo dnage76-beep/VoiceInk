@@ -28,8 +28,14 @@ struct DashboardContent: View {
     @State private var dashboardStatsLoadGeneration = 0
     @State private var isModelPerformancePanelPresented = false
     @State private var isModelUsagePanelPresented = false
-    @State private var isInsightsViewPresented = false
     @State private var selectedInsightPeriod: DashboardInsightPeriod = .allTime
+    @State private var selectedInsightTab: InsightTab = .usage
+    /// Word-level insights, loaded lazily when Insights opens: they tokenise
+    /// every transcript, which is far heavier than the counting the stats
+    /// loader does, and are wasted work for anyone who never opens the page.
+    @State private var voiceSummary: VoiceInsightSummary = .empty
+    @State private var isLoadingVoiceSummary = false
+    @State private var voiceSummaryTask: Task<Void, Never>?
     @State private var isAccessibilityEnabled = AXIsProcessTrusted()
     @ObservedObject private var modeManager = ModeManager.shared
     @State private var isSystemInfoCopied = false
@@ -177,6 +183,46 @@ struct DashboardContent: View {
     /// The landing page IS the insights page: stats first, no transcript feed.
     private var landingInsights: some View {
         VStack(alignment: .leading, spacing: 22) {
+            InsightTabPicker(selection: $selectedInsightTab)
+                .entranceReveal(delay: 0.10, play: playsEntrance)
+
+            switch selectedInsightTab {
+            case .usage:
+                usageInsights
+                    .transition(.opacity.combined(with: .offset(y: 6)))
+            case .voice:
+                InsightVoiceTab(
+                    summary: voiceSummary,
+                    peakHours: selectedPeakHours,
+                    isLoading: isLoadingVoiceSummary
+                )
+                .transition(.opacity.combined(with: .offset(y: 6)))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .onAppear(perform: loadVoiceSummary)
+    }
+
+    private var usageInsights: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            headlineInsightRow
+                .entranceReveal(delay: 0.14, play: playsEntrance)
+
+            HStack(alignment: .top, spacing: DashboardLayout.columnSpacing) {
+                InsightAppUsageCard(summary: statsSummary.appUsage, playsEntrance: playsEntrance)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                InsightActivityGrid(
+                    wordsByDay: statsSummary.wordsByDay,
+                    bestDayWordCount: statsSummary.bestDayWordCount,
+                    currentStreak: statsSummary.currentDayStreak,
+                    longestStreak: statsSummary.longestDayStreak,
+                    playsEntrance: playsEntrance
+                )
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .entranceReveal(delay: 0.20, play: playsEntrance)
+
             DashboardProductivitySummaryStrip(
                 summary: selectedTimeSavedSummary,
                 wordsPerMinute: selectedTotals.wordsPerMinute,
@@ -204,6 +250,43 @@ struct DashboardContent: View {
             }
             .frame(height: 196)
             .entranceReveal(delay: 0.32, play: playsEntrance)
+
+            modelInsightCards
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    /// The three headline numbers: speaking rate against your own record, what
+    /// AI cleanup fixed, and the running total.
+    private var headlineInsightRow: some View {
+        HStack(alignment: .top, spacing: DashboardLayout.columnSpacing) {
+            InsightSpeedRing(
+                wordsPerMinute: selectedTotals.wordsPerMinute,
+                personalBest: statsSummary.bestWordsPerMinute,
+                playsEntrance: playsEntrance
+            )
+            .frame(maxWidth: .infinity)
+
+            InsightFixesCard(
+                corrections: voiceSummary.corrections,
+                enhancedSessionCount: statsSummary.enhancedCount(for: selectedInsightPeriod),
+                isLoading: isLoadingVoiceSummary
+            )
+            .frame(maxWidth: .infinity)
+
+            InsightTotalWordsCard(
+                wordCount: selectedTimeSavedSummary.wordCount,
+                sessionCount: selectedTimeSavedSummary.sessionCount
+            )
+            .frame(maxWidth: .infinity)
+        }
+        // Sized by content rather than pinned: the speed dial is the tallest
+        // element and a fixed height clipped it.
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var modelInsightCards: some View {
+        VStack(alignment: .leading, spacing: 22) {
 
             ModelUsageCard(
                 summary: selectedModelUsage,
@@ -378,12 +461,33 @@ struct DashboardContent: View {
         }
     }
 
-    private func openInsightsIfAvailable() {
-        guard canViewInsights else {
-            return
-        }
+    /// Computes the word-level insights once per visit. Skipped when a result
+    /// is already in hand, so switching tabs does not re-tokenise everything.
+    private func loadVoiceSummary() {
+        guard voiceSummaryTask == nil, !voiceSummary.hasData else { return }
 
-        isInsightsViewPresented = true
+        isLoadingVoiceSummary = true
+        let container = modelContext.container
+
+        voiceSummaryTask = Task {
+            defer {
+                Task { @MainActor in
+                    self.isLoadingVoiceSummary = false
+                    self.voiceSummaryTask = nil
+                }
+            }
+
+            do {
+                let summary = try await VoiceInsightLoader.load(from: container)
+                await MainActor.run {
+                    self.voiceSummary = summary
+                }
+            } catch is CancellationError {
+                // Leaving the page mid-load is normal, not an error.
+            } catch {
+                logger.error("Error loading voice insights: \(error, privacy: .public)")
+            }
+        }
     }
 
     private func openModelPerformancePanel() {
@@ -524,24 +628,6 @@ struct DashboardContent: View {
         case .licensed:
             EmptyView()
         }
-    }
-
-    private var dashboardInsightsView: some View {
-        DashboardInsightsView(
-            selectedPeriod: $selectedInsightPeriod,
-            productivityPoints: selectedProductivityPoints,
-            peakHoursSummary: selectedPeakHours,
-            isPeakHoursLocked: shouldLockPeakHours,
-            timeSavedSummary: selectedTimeSavedSummary,
-            modelUsage: selectedModelUsage,
-            modelPerformanceSummaries: selectedModelPerformance,
-            updatedAtText: statsUpdatedAtText,
-            isRefreshingStats: isDashboardStatsRefreshing,
-            onBack: { isInsightsViewPresented = false },
-            onRefreshStats: refreshDashboardStats,
-            onViewModelUsage: openModelUsagePanel,
-            onViewModelPerformance: openModelPerformancePanel
-        )
     }
 
     private var heroSection: some View {

@@ -153,7 +153,7 @@ class ImportExportService {
 
         let generalSettingsToExport = GeneralBackup(
             primaryRecordingShortcut: ShortcutStore.shortcut(for: .primaryRecording).map(ShortcutBackup.init),
-            secondaryRecordingShortcut: ShortcutStore.shortcut(for: .secondaryRecording).map(ShortcutBackup.init),
+            secondaryRecordingShortcut: nil,
             pasteLastTranscriptionShortcut: ShortcutStore.shortcut(for: .pasteLastTranscription).map(
                 ShortcutBackup.init),
             pasteLastEnhancementShortcut: ShortcutStore.shortcut(for: .pasteLastEnhancement).map(ShortcutBackup.init),
@@ -163,9 +163,9 @@ class ImportExportService {
             openHistoryWindowShortcut: ShortcutStore.shortcut(for: .openHistoryWindow).map(ShortcutBackup.init),
             quickAddToDictionaryShortcut: ShortcutStore.shortcut(for: .quickAddToDictionary).map(ShortcutBackup.init),
             primaryRecordingShortcutRawValue: recordingShortcutManager.primaryRecordingShortcut.rawValue,
-            secondaryRecordingShortcutRawValue: recordingShortcutManager.secondaryRecordingShortcut.rawValue,
+            secondaryRecordingShortcutRawValue: nil,
             primaryRecordingShortcutModeRawValue: recordingShortcutManager.primaryRecordingShortcutMode.rawValue,
-            secondaryRecordingShortcutModeRawValue: recordingShortcutManager.secondaryRecordingShortcutMode.rawValue,
+            secondaryRecordingShortcutModeRawValue: nil,
             isMiddleClickToggleEnabled: recordingShortcutManager.isMiddleClickToggleEnabled,
             middleClickActivationDelay: recordingShortcutManager.middleClickActivationDelay,
             launchAtLoginEnabled: LaunchAtLogin.isEnabled,

@@ -292,6 +292,16 @@ struct DashboardStatsSummary: Codable, Equatable, Sendable {
     var lastThirtyDayEnhancedCount: Int = 0
     var thisYearEnhancedCount: Int = 0
     var totalEnhancedCount: Int = 0
+    /// Which apps the dictated text went to. All-time only: the card answers
+    /// "where do I dictate" which is a habit, not a this-week number.
+    var appUsage: DashboardAppUsageSummary = .empty
+    /// Words per calendar day, for the contribution-style activity grid.
+    var wordsByDay: [Date: Int] = [:]
+    /// Best single-day word count ever, used as the grid's intensity ceiling.
+    var bestDayWordCount: Int = 0
+    /// Highest words-per-minute over any single day with enough audio to judge.
+    /// This is the "personal best" the speed ring fills toward.
+    var bestWordsPerMinute: Int?
 }
 
 extension DashboardStatsSummary {
