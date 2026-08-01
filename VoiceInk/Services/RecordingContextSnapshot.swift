@@ -31,26 +31,55 @@ final class RecordingContextSnapshotStore {
     }
 }
 
+/// Which context sources this dictation can actually use. Capturing
+/// unconditionally meant every dictation took a screenshot and ran OCR even
+/// for modes with screen capture switched off; the flags let the engine skip
+/// work (and a silent screenshot) the prompt builder would only filter out
+/// again at read time.
+struct RecordingContextNeeds {
+    var clipboardText: Bool
+    var selectedText: Bool
+    var screenText: Bool
+
+    static let all = RecordingContextNeeds(clipboardText: true, selectedText: true, screenText: true)
+}
+
 @MainActor
 enum RecordingContextCaptureService {
-    static func startCapture(into store: RecordingContextSnapshotStore) -> [Task<Void, Never>] {
-        [
-            Task { @MainActor in
-                store.updateClipboardText(NSPasteboard.general.string(forType: .string))
-            },
-            Task { @MainActor in
-                guard !Task.isCancelled else { return }
-                let selectedText = await SelectedTextService.fetchSelectedText()
-                guard !Task.isCancelled else { return }
-                store.updateSelectedText(selectedText)
-            },
-            Task { @MainActor in
-                guard CGPreflightScreenCaptureAccess(), !Task.isCancelled else { return }
-                let screenCaptureService = ScreenCaptureService()
-                let screenText = await screenCaptureService.captureAndExtractText()
-                guard !Task.isCancelled else { return }
-                store.updateScreenText(screenText)
-            },
-        ]
+    static func startCapture(
+        into store: RecordingContextSnapshotStore,
+        needs: RecordingContextNeeds = .all
+    ) -> [Task<Void, Never>] {
+        var tasks: [Task<Void, Never>] = []
+
+        if needs.clipboardText {
+            tasks.append(
+                Task { @MainActor in
+                    store.updateClipboardText(NSPasteboard.general.string(forType: .string))
+                })
+        }
+
+        if needs.selectedText {
+            tasks.append(
+                Task { @MainActor in
+                    guard !Task.isCancelled else { return }
+                    let selectedText = await SelectedTextService.fetchSelectedText()
+                    guard !Task.isCancelled else { return }
+                    store.updateSelectedText(selectedText)
+                })
+        }
+
+        if needs.screenText {
+            tasks.append(
+                Task { @MainActor in
+                    guard CGPreflightScreenCaptureAccess(), !Task.isCancelled else { return }
+                    let screenCaptureService = ScreenCaptureService()
+                    let screenText = await screenCaptureService.captureAndExtractText()
+                    guard !Task.isCancelled else { return }
+                    store.updateScreenText(screenText)
+                })
+        }
+
+        return tasks
     }
 }

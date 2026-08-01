@@ -13,6 +13,17 @@ class MiniRecorderPanel: NSPanel {
             defer: false
         )
         configurePanel()
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleScreenParametersChange),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     private func configurePanel() {
@@ -61,4 +72,16 @@ class MiniRecorderPanel: NSPanel {
         orderFrontRegardless()
     }
 
+    // Unlike the other panel styles this one is user-movable, so a display
+    // change only repositions it when the screen it was sitting on is gone;
+    // a deliberately placed panel stays put.
+    @objc private func handleScreenParametersChange() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let self, self.isVisible else { return }
+            let stillOnAScreen = NSScreen.screens.contains { $0.frame.intersects(self.frame) }
+            if !stillOnAScreen {
+                self.setFrame(MiniRecorderPanel.calculateWindowMetrics(), display: true)
+            }
+        }
+    }
 }

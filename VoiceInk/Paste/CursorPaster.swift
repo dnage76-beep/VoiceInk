@@ -66,7 +66,11 @@ class CursorPaster {
         await wait(prePasteDelay)
 
         let pasteResult = await postPasteCommand()
-        if shouldRestoreClipboard {
+        // When the paste command never went out (missing Accessibility or
+        // Automation permission), the dictated text on the clipboard is the
+        // only copy the user has left; restoring the old clipboard over it
+        // would destroy the dictation.
+        if shouldRestoreClipboard, pasteResult.didPostPasteCommand {
             scheduleClipboardRestore(
                 savedContents,
                 expectedText: text,

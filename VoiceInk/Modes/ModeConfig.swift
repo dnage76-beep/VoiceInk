@@ -391,16 +391,22 @@ class ModeManager: ObservableObject {
     func getConfigurationForURL(_ url: String) -> ModeConfig? {
         let cleanedURL = cleanURL(url)
 
+        // The most specific configured URL wins. A first-hit scan would let a
+        // broad entry like "google.com" in an earlier-created mode shadow
+        // "docs.google.com" in a later one, with no way for the user to see why.
+        var bestMatch: (config: ModeConfig, matchLength: Int)?
         for config in configurations.filter({ $0.isEnabled }) {
             for urlConfig in config.allURLConfigs {
                 let configURL = cleanURL(urlConfig.url)
 
-                if cleanedURL.contains(configURL) {
-                    return config
+                if !configURL.isEmpty, cleanedURL.contains(configURL),
+                    configURL.count > (bestMatch?.matchLength ?? 0)
+                {
+                    bestMatch = (config, configURL.count)
                 }
             }
         }
-        return nil
+        return bestMatch?.config
     }
 
     func getConfigurationForApp(_ bundleId: String) -> ModeConfig? {

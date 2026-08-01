@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import os
 
@@ -169,15 +170,37 @@ final class TranscriptionDelivery {
         // The recorder panel never takes key focus, so the paste does not
         // need to wait for its dismiss animation; running them concurrently
         // saves the animation's ~half second on every dictation.
+        let pasteTargetApp = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let pasteTask = CursorPaster.startPasteAtCursor(pastedText)
         await actions.dismiss()
 
         let autoSendKey = output.outputMode == .paste ? output.autoSendKey : .none
         Task { @MainActor in
-            _ = await pasteTask.value
+            let pasteResult = await pasteTask.value
+
+            guard pasteResult.didPostPasteCommand else {
+                // Without this, a revoked Accessibility or Automation
+                // permission looks like "dictation does nothing": sound
+                // plays, panel dismisses, no text appears anywhere.
+                NotificationManager.shared.showNotification(
+                    title: String(
+                        localized:
+                            "Couldn't paste. The text is on your clipboard; check VoiceInk's Accessibility permission."
+                    ),
+                    type: .error,
+                    duration: 7.0
+                )
+                return
+            }
 
             if autoSendKey.isEnabled {
                 try? await Task.sleep(nanoseconds: 500_000_000)
+                // The user may have switched apps during that pause; a bare
+                // Enter into whatever is now focused could submit a form or
+                // send a half-written message.
+                guard NSWorkspace.shared.frontmostApplication?.processIdentifier == pasteTargetApp else {
+                    return
+                }
                 CursorPaster.performAutoSend(autoSendKey)
             }
         }

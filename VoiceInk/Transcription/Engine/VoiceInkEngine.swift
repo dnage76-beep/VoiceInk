@@ -507,7 +507,29 @@ class VoiceInkEngine: NSObject, ObservableObject {
 
         let store = RecordingContextSnapshotStore()
         activeRecordingContextStore = store
-        activeRecordingContextTasks = RecordingContextCaptureService.startCapture(into: store)
+        activeRecordingContextTasks = RecordingContextCaptureService.startCapture(
+            into: store,
+            needs: resolveRecordingContextNeeds()
+        )
+    }
+
+    /// Only the context sources this dictation can actually use. The active
+    /// mode's flags decide, but a trigger word inside the utterance can still
+    /// retarget the dictation to another mode after transcription, so any
+    /// enabled trigger-word mode's needs are included as well.
+    private func resolveRecordingContextNeeds() -> RecordingContextNeeds {
+        let modeManager = ModeManager.shared
+        var candidates = modeManager.enabledConfigurations.filter { !$0.triggerWords.isEmpty }
+        if let active = modeManager.currentEffectiveConfiguration {
+            candidates.append(active)
+        }
+        guard !candidates.isEmpty else { return .all }
+
+        return RecordingContextNeeds(
+            clipboardText: candidates.contains { $0.useClipboardContext },
+            selectedText: candidates.contains { $0.useSelectedTextContext },
+            screenText: candidates.contains { $0.useScreenCapture }
+        )
     }
 
     private func clearActiveRecordingContext() {
@@ -530,8 +552,24 @@ class VoiceInkEngine: NSObject, ObservableObject {
             transcription.text = String(localized: "Transcription Failed: No model selected")
             transcription.transcriptionStatus = TranscriptionStatus.failed.rawValue
             try? modelContext.save()
-            recordingState = .idle
+            NotificationManager.shared.showNotification(
+                title: String(localized: "Transcription failed: no model selected"),
+                type: .error
+            )
+            // Mirror the end-of-pipeline teardown: without it this path
+            // leaked the model-residency count (models stayed pinned in
+            // memory forever) and left the recorder panel up.
+            await finishRecorderSession()
+            await cleanupResources()
+            activePipelineTranscriptionID = nil
+            currentSession = nil
+            currentSessionTranscriptionConfiguration = nil
+            recordedFile = nil
+            shouldCancelRecording = false
             activePipelineUseCase = .newSession
+            clearActiveRecordingContext()
+            await recorderUIManager?.dismissRecorderPanel()
+            recordingState = .idle
             return
         }
 
@@ -880,6 +918,12 @@ class VoiceInkEngine: NSObject, ObservableObject {
 
     @objc private func handleSystemWillSleep() {
         Task { @MainActor in
+            // A dictation still live at sleep would survive as a frozen panel
+            // over a dead audio session; finish it like a stop press so the
+            // captured audio is transcribed and saved.
+            if recordingState == .recording {
+                await toggleRecord()
+            }
             await releaseModelsNow(reason: "system sleep")
         }
     }
