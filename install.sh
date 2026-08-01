@@ -73,7 +73,15 @@ IS_UPGRADE=false
 
 WORK_DIR="$(mktemp -d)"
 DMG_PATH="${WORK_DIR}/VoiceInk.dmg"
-DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/VoiceInk-DerekBuild.dmg"
+
+# Ask the release for its actual DMG asset instead of assuming a filename;
+# a renamed asset silently 404s the fixed URL (this bit us at v1.2.3-1.2.5).
+DOWNLOAD_URL="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null \
+    | grep -o '"browser_download_url"[^"]*"[^"]*\.dmg"' \
+    | head -1 \
+    | grep -o 'https://[^"]*')"
+[[ -n "$DOWNLOAD_URL" ]] \
+    || DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/VoiceInk-DerekBuild.dmg"
 
 info "Downloading the latest release..."
 curl -fL --progress-bar "$DOWNLOAD_URL" -o "$DMG_PATH" \
