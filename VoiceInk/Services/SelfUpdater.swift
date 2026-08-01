@@ -76,6 +76,18 @@ final class SelfUpdater: ObservableObject {
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
 
+        // On success the script quits this app, so this handler only ever
+        // delivers bad news: if we are still alive when the installer exits,
+        // it did not finish.
+        process.terminationHandler = { [logger] finished in
+            Task { @MainActor in
+                guard SelfUpdater.shared.state == .installing else { return }
+                logger.error("Installer exited early (status \(finished.terminationStatus, privacy: .public))")
+                SelfUpdater.shared.state = .failed(
+                    String(localized: "The update didn't finish. Check your internet and try again."))
+            }
+        }
+
         do {
             try process.run()
         } catch {

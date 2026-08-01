@@ -100,9 +100,13 @@ class TranscriptionAutoCleanupService {
         do {
             let backgroundContext = ModelContext(modelContainer)
 
+            // A pending row is a dictation the pipeline is still working on;
+            // sweeping it deletes the audio out from under the transcriber.
+            let pendingStatus = TranscriptionStatus.pending.rawValue
             let descriptor = FetchDescriptor<Transcription>(
                 predicate: #Predicate<Transcription> { transcription in
                     transcription.timestamp < cutoffDate
+                        && transcription.transcriptionStatus != pendingStatus
                 }
             )
             let items = try backgroundContext.fetch(descriptor)

@@ -45,9 +45,15 @@ final class TranscriptionDelivery {
             return
         }
 
-        if let text = request.text {
+        // An accidental tap or an utterance that was pure filler filters down
+        // to an empty transcript; pasting it would still type a trailing
+        // space (or fire a bare Cmd+V) into whatever has focus.
+        if let text = request.text,
+            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        {
             await paste(text, output: request.output, actions: actions)
         } else {
+            SoundManager.shared.playStopSound()
             await actions.dismiss()
         }
     }

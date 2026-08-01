@@ -25,12 +25,12 @@ struct OnboardingDictionaryScreen: View {
 
                 VStack(spacing: 10) {
                     entryRow(
-                        spokenPhrase: "my number",
+                        spokenPhrase: "my number is",
                         placeholder: "847-555-0123",
                         text: $phoneNumber
                     )
                     entryRow(
-                        spokenPhrase: "my email",
+                        spokenPhrase: "my email is",
                         placeholder: "you@example.com",
                         text: $email
                     )
@@ -69,7 +69,7 @@ struct OnboardingDictionaryScreen: View {
                 icon: "arrow.right.circle",
                 title: String(localized: "Spoken shortcuts"),
                 detail: String(
-                    localized: "Say \"my number\" mid-sentence and VoiceInk types the real digits.")
+                    localized: "Say \"call me, my number is\" and VoiceInk finishes it with the real digits.")
             )
         }
         .padding(16)
@@ -134,16 +134,20 @@ struct OnboardingDictionaryScreen: View {
         )
     }
 
+    /// The trigger keeps its own lead-in ("my number is" -> "my number is
+    /// 847...") so it only ever completes the sentence the user is already
+    /// saying. A bare "my number" trigger fired inside unrelated sentences
+    /// like "give me my number for the badge".
     private func saveEntries() {
         let entries: [(spoken: String, typed: String)] = [
-            ("my number", phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)),
-            ("my email", email.trimmingCharacters(in: .whitespacesAndNewlines)),
+            ("my number is", phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)),
+            ("my email is", email.trimmingCharacters(in: .whitespacesAndNewlines)),
         ]
 
         for entry in entries where !entry.typed.isEmpty {
             DictionaryService.addWordReplacement(
                 original: entry.spoken,
-                replacement: entry.typed,
+                replacement: "\(entry.spoken) \(entry.typed)",
                 existing: Array(existingReplacements),
                 context: modelContext
             )

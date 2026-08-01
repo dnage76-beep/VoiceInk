@@ -1,10 +1,13 @@
 import Foundation
 
 struct TranscriptionOutputFilter {
+    // Noise annotations look like "[music]" or "(laughs)": a few letters,
+    // nothing else. Matching any bracketed content deleted real output, most
+    // visibly phone numbers the model formats as "(555) 123-4567".
     private static let hallucinationPatterns = [
-        #"\[.*?\]"#,  // []
-        #"\(.*?\)"#,  // ()
-        #"\{.*?\}"#,  // {}
+        #"\[[A-Za-z' -]{1,30}\]"#,  // [music]
+        #"\([A-Za-z' -]{1,30}\)"#,  // (laughs)
+        #"\{[A-Za-z' -]{1,30}\}"#,  // {noise}
     ]
 
     static func filter(_ text: String) -> String {

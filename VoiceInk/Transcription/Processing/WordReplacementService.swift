@@ -35,6 +35,15 @@ class WordReplacementService {
                 .sorted { $0.count > $1.count }
 
             for original in variants {
+                // A self-expanding snippet ("my number is" -> "my number is
+                // 847...") must not fire when the user spoke the expansion out
+                // themselves; it would inject a second copy of the value.
+                if replacementText.lowercased().hasPrefix(original.lowercased()),
+                    modifiedText.range(of: replacementText, options: .caseInsensitive) != nil
+                {
+                    continue
+                }
+
                 let usesBoundaries = usesWordBoundaries(for: original)
 
                 if usesBoundaries {
@@ -47,7 +56,9 @@ class WordReplacementService {
                             in: modifiedText,
                             options: [],
                             range: range,
-                            withTemplate: replacementText
+                            // User text, not a template: a replacement containing
+                            // "$" (Venmo handles, prices) must come out literally.
+                            withTemplate: NSRegularExpression.escapedTemplate(for: replacementText)
                         )
                     }
                 } else {

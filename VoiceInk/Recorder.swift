@@ -230,6 +230,10 @@ class Recorder: NSObject, ObservableObject {
                 type: .error
             )
         }
+
+        // The engine still believes it is recording; without this it shows a
+        // live recorder over a dead microphone until the user pokes it.
+        NotificationCenter.default.post(name: .recordingFailedMidSession, object: nil)
     }
 
     private func startAudioMeterTimer() {

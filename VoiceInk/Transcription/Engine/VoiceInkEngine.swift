@@ -852,6 +852,24 @@ class VoiceInkEngine: NSObject, ObservableObject {
             name: NSWorkspace.willSleepNotification,
             object: nil
         )
+
+        // A mic that died mid-recording (Bluetooth drop with no working
+        // fallback) stops the recorder underneath us. Finish the session as
+        // if the user pressed stop, so the words captured up to the failure
+        // still get transcribed instead of the UI freezing on "recording".
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRecordingFailedMidSession),
+            name: .recordingFailedMidSession,
+            object: nil
+        )
+    }
+
+    @objc private func handleRecordingFailedMidSession() {
+        Task { @MainActor in
+            guard self.recordingState == .recording else { return }
+            await self.toggleRecord()
+        }
     }
 
     @objc private func handleModelChange() {
