@@ -165,9 +165,12 @@ final class TranscriptionDelivery {
         let appendSpace = UserDefaults.standard.bool(forKey: "AppendTrailingSpace")
         let pastedText = textToPaste + (appendSpace ? " " : "")
         SoundManager.shared.playStopSound()
-        await actions.dismiss()
 
+        // The recorder panel never takes key focus, so the paste does not
+        // need to wait for its dismiss animation; running them concurrently
+        // saves the animation's ~half second on every dictation.
         let pasteTask = CursorPaster.startPasteAtCursor(pastedText)
+        await actions.dismiss()
 
         let autoSendKey = output.outputMode == .paste ? output.autoSendKey : .none
         Task { @MainActor in

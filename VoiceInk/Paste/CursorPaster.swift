@@ -17,7 +17,9 @@ class CursorPaster {
         }
     }
 
-    private static let prePasteDelay: TimeInterval = 0.10
+    // 100ms was generous; the clipboard write is synchronous and 60ms is
+    // still comfortably above what slow apps need to observe it.
+    private static let prePasteDelay: TimeInterval = 0.06
     private static let pasteShortcutEventDelay: TimeInterval = 0.01
     private static let minimumClipboardRestoreDelay: TimeInterval = 0.25
 

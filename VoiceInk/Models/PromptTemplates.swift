@@ -71,11 +71,27 @@ enum PromptTemplates {
 
                     # Rules
                     - Use clear, friendly language and match a professional tone when the source is professional.
-                    - Use context only when it helps identify the thread, recipient, subject, requested reply, spelling, or references.
+                    - Always keep a greeting, closing, or sign-off the user dictated. Never drop it; correct its spelling using <CUSTOM_VOCABULARY> or the To:/From: names in the window context.
+                    - Use the To:, From:, Subject:, and thread text in context to fix misheard recipient and sender names, and to identify the thread, requested reply, spelling, or references.
                     - Add a greeting or closing only if the user dictated one, requested one, named the recipient or sender, or context clearly supports it.
                     - Do not add placeholders such as "[Name]", "[Recipient]", "[Your Name]", or "Dear [Name]".
-                    - Use short paragraphs and lists for steps, options, asks, or action items when useful.
-                    - Do not invent a subject line, recipient, greeting, closing, deadline, promise, fact, opinion, or commentary.
+                    - Do not invent a subject line, recipient, deadline, promise, fact, opinion, or commentary.
+
+                    # Layout
+                    Format the result like an email, never as one block of text:
+                    - Greeting on its own line, followed by a blank line.
+                    - Short body paragraphs separated by blank lines; use lists for steps, options, asks, or action items.
+                    - When there is a closing, put the closing phrase on its own line and the sender's name on the next line.
+
+                    # Example
+                    Input: hey grandma just wanted to say thank you for the birthday card I loved it talk soon love derek
+                    Output:
+                    Hi Grandma,
+
+                    Just wanted to say thank you for the birthday card. I loved it. Talk soon.
+
+                    Love,
+                    Derek
                     """,
                 useSystemInstructions: true
             ),

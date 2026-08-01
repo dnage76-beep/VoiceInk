@@ -51,7 +51,13 @@ class AIEnhancementService: ObservableObject {
         if let savedPromptsData = UserDefaults.standard.data(forKey: "customPrompts"),
             let decodedPrompts = try? JSONDecoder().decode([CustomPrompt].self, from: savedPromptsData)
         {
-            self.customPrompts = decodedPrompts
+            let migrated = TemplatePromptMigration.refreshed(decodedPrompts)
+            self.customPrompts = migrated.prompts
+            if migrated.didChange {
+                // didSet observers do not fire during init, so persist the
+                // migrated prompts explicitly.
+                savePrompts()
+            }
         } else {
             self.customPrompts = []
         }
@@ -170,11 +176,11 @@ class AIEnhancementService: ObservableObject {
 
         let customVocabulary = customVocabularyService.getCustomVocabulary(from: modelContext)
 
+        // The system template already states how <CUSTOM_VOCABULARY> is used;
+        // repeating it here just added prefill tokens to every request.
         let customVocabularySection =
             if !customVocabulary.isEmpty {
                 """
-                # Custom Vocabulary
-                Use these custom vocabulary words, proper nouns, acronyms, product names, and technical terms as the spelling authority. When the text clearly refers to one of these entries, replace similar-sounding or phonetically close transcription mistakes with the exact spelling shown below. Do not force a replacement when the text clearly means something else:
                 <CUSTOM_VOCABULARY>
                 \(customVocabulary)
                 </CUSTOM_VOCABULARY>
