@@ -64,7 +64,7 @@ enum FreshInstallDefaults {
             }
         }
 
-        disableSystemFnOverrideIfNeeded()
+        SystemFnRepair.repairIfNeeded()
 
         Task { @MainActor in
             let claudeAvailable = await Self.isClaudeCLIAvailable()
@@ -157,24 +157,5 @@ enum FreshInstallDefaults {
         defaultConfig.selectedAIModel = aiService.currentModel
         ModeManager.shared.updateConfiguration(defaultConfig)
         ModeManager.shared.setActiveConfiguration(defaultConfig)
-    }
-
-    /// With Fn as the recording key, the system's own Fn action (emoji
-    /// picker, input-source switch, dictation) fights every activation.
-    private static func disableSystemFnOverrideIfNeeded() {
-        guard let shortcut = ShortcutStore.shortcut(for: .primaryRecording),
-            shortcut.isModifierOnly,
-            shortcut.keyCode == UInt16(kVK_Function)
-        else { return }
-
-        let domain = "com.apple.HIToolbox" as CFString
-        CFPreferencesSetValue(
-            "AppleFnUsageType" as CFString,
-            0 as CFNumber,
-            domain,
-            kCFPreferencesCurrentUser,
-            kCFPreferencesAnyHost
-        )
-        CFPreferencesSynchronize(domain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)
     }
 }

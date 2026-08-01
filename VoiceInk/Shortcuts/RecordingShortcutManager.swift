@@ -143,6 +143,7 @@ class RecordingShortcutManager: ObservableObject {
     private func refreshShortcutMonitoring() {
         removeAllMonitoring()
 
+        SystemFnRepair.repairIfNeeded()
         refreshShortcutMonitor()
         setupMiddleClickMonitoring()
     }
