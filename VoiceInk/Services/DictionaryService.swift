@@ -57,6 +57,33 @@ enum DictionaryService {
         }
     }
 
+    // MARK: - Starter Entries
+
+    private static let starterSeedKey = "HasSeededStarterDictionary"
+
+    /// Fresh installs get a couple of entries so the Dictionary page (and the
+    /// onboarding step that introduces it) demonstrates itself instead of
+    /// opening empty. Existing installs are never touched.
+    static func seedStarterEntriesIfNeeded(context: ModelContext) {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: starterSeedKey),
+            !defaults.bool(forKey: "hasCompletedOnboardingV2")
+        else { return }
+        defaults.set(true, forKey: starterSeedKey)
+
+        context.insert(VocabularyWord(word: "VoiceInk"))
+        context.insert(
+            WordReplacement(originalText: "voice ink", replacementText: "VoiceInk")
+        )
+
+        do {
+            try context.save()
+        } catch {
+            context.rollback()
+            logger.error("Failed to seed starter dictionary entries: \(error, privacy: .public)")
+        }
+    }
+
     // MARK: - Duplicate Cleanup
 
     @discardableResult

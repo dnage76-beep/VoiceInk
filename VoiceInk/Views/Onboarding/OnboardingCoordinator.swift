@@ -152,12 +152,16 @@ final class OnboardingCoordinator: ObservableObject {
             return contextAwarenessStepNumber
         }
 
-        if stage == .trust {
+        if stage == .dictionary {
             return OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 1
         }
 
-        if stage == .license {
+        if stage == .trust {
             return OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 2
+        }
+
+        if stage == .license {
+            return OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 3
         }
 
         return stage.stepNumber
@@ -166,9 +170,9 @@ final class OnboardingCoordinator: ObservableObject {
     var totalStepCount: Int {
         #if LOCAL_BUILD
             // No license step in local builds.
-            OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 1
-        #else
             OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 2
+        #else
+            OnboardingStage.baseStepCount + activeExperienceSteps.count + contextAwarenessStepCount + 3
         #endif
     }
 

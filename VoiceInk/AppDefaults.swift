@@ -17,12 +17,23 @@ enum AppDefaults {
     /// controls can't drift to different fallbacks for the same key.
     static let enhancementTimeoutSeconds: TimeInterval = 20
 
+    static var isLocalBuild: Bool {
+        #if LOCAL_BUILD
+            return true
+        #else
+            return false
+        #endif
+    }
+
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [
             // Onboarding & General
             "hasCompletedOnboardingV2": false,
             "hasPreparedOnboardingV2": false,
-            "enableAnnouncements": true,
+            // The announcements feed phones home to upstream's site. The
+            // GitHub build promises no network traffic the user didn't ask
+            // for, so it stays opt-in there.
+            "enableAnnouncements": !isLocalBuild,
 
             // Clipboard
             "restoreClipboardAfterPaste": true,

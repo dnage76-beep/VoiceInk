@@ -188,6 +188,22 @@ struct OnboardingView: View {
                         }
                     )
                     .transition(.opacity)
+                case .dictionary:
+                    OnboardingDictionaryScreen(
+                        contentMaxWidth: contentMaxWidth,
+                        onBack: {
+                            coordinator.flow.goToPreviousDictionaryStep(
+                                isTranscriptionSetupReady: isTranscriptionSetupReady,
+                                enhancementService: enhancementService
+                            )
+                        },
+                        onContinue: {
+                            coordinator.flow.goToTrustStep(
+                                isTranscriptionSetupReady: isTranscriptionSetupReady
+                            )
+                        }
+                    )
+                    .transition(.opacity)
                 case .trust:
                     OnboardingTrustScreen(
                         contentMaxWidth: contentMaxWidth,
@@ -199,8 +215,7 @@ struct OnboardingView: View {
                         isEnhancementConfigured: coordinator.isEnhancementConfigured(aiService: aiService),
                         onBack: {
                             coordinator.flow.goToPreviousTrustStep(
-                                isTranscriptionSetupReady: isTranscriptionSetupReady,
-                                enhancementService: enhancementService
+                                isTranscriptionSetupReady: isTranscriptionSetupReady
                             )
                         },
                         onContinue: {

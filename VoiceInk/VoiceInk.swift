@@ -90,6 +90,7 @@ struct VoiceInkApp: App {
         }
 
         container = resolvedContainer
+        DictionaryService.seedStarterEntriesIfNeeded(context: resolvedContainer.mainContext)
         DictionaryService.removeExactDuplicateContent(context: resolvedContainer.mainContext, source: "launch")
 
         // Initialize services with proper sharing of instances
@@ -347,6 +348,7 @@ struct VoiceInkApp: App {
                         .environmentObject(aiService)
                         .environmentObject(enhancementService)
                         .environmentObject(recorderUIManager)
+                        .modelContainer(container)
                         .frame(width: AppWindowLayout.width)
                         .frame(minHeight: AppWindowLayout.minimumHeight)
                         .background(

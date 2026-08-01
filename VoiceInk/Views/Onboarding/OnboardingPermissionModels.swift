@@ -7,6 +7,7 @@ enum OnboardingStage: String, CaseIterable {
     case api
     case experience
     case contextAwareness
+    case dictionary
     case trust
     case license
 
@@ -24,10 +25,12 @@ enum OnboardingStage: String, CaseIterable {
             return 5
         case .contextAwareness:
             return 6
-        case .trust:
+        case .dictionary:
             return 7
-        case .license:
+        case .trust:
             return 8
+        case .license:
+            return 9
         }
     }
 
@@ -45,6 +48,8 @@ enum OnboardingStage: String, CaseIterable {
             return "square.grid.2x2.fill"
         case .contextAwareness:
             return "slider.horizontal.3"
+        case .dictionary:
+            return "character.book.closed"
         case .trust:
             return "lock.shield"
         case .license:
@@ -66,6 +71,8 @@ enum OnboardingStage: String, CaseIterable {
             return String(localized: "Experience VoiceInk")
         case .contextAwareness:
             return String(localized: "VoiceInk is Context-Aware")
+        case .dictionary:
+            return String(localized: "Teach VoiceInk Your Words")
         case .trust:
             return String(localized: "VoiceInk is Open Source")
         case .license:
@@ -91,6 +98,10 @@ enum OnboardingStage: String, CaseIterable {
         case .contextAwareness:
             return String(
                 localized: "VoiceInk can select the right mode from the app you are using and the rules you configure.")
+        case .dictionary:
+            return String(
+                localized:
+                    "Names it should spell right, and spoken phrases it types out exactly, like your phone number.")
         case .trust:
             return String(localized: "VoiceInk is private by default. No data leaves your device unless you opt in.")
         case .license:

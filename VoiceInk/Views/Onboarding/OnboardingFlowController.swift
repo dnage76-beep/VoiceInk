@@ -93,6 +93,11 @@ final class OnboardingFlowController {
         coordinator.storedStage = OnboardingStage.contextAwareness.rawValue
     }
 
+    func goToDictionaryStep(isTranscriptionSetupReady: Bool) {
+        guard coordinator.isReadyForExperience(isTranscriptionSetupReady: isTranscriptionSetupReady) else { return }
+        coordinator.storedStage = OnboardingStage.dictionary.rawValue
+    }
+
     func goToTrustStep(isTranscriptionSetupReady: Bool) {
         guard coordinator.isReadyForExperience(isTranscriptionSetupReady: isTranscriptionSetupReady) else { return }
         coordinator.storedStage = OnboardingStage.trust.rawValue
@@ -172,7 +177,7 @@ final class OnboardingFlowController {
         moveToExperienceStep(nextIndex, enhancementService: enhancementService)
     }
 
-    func goToPreviousTrustStep(
+    func goToPreviousDictionaryStep(
         isTranscriptionSetupReady: Bool,
         enhancementService: AIEnhancementService
     ) {
@@ -188,6 +193,15 @@ final class OnboardingFlowController {
         installExperienceMode(at: previousIndex, enhancementService: enhancementService)
         activateExperienceModeForDemo()
         refreshExperienceModeState(enhancementService: enhancementService)
+    }
+
+    func goToPreviousTrustStep(isTranscriptionSetupReady: Bool) {
+        guard coordinator.isReadyForExperience(isTranscriptionSetupReady: isTranscriptionSetupReady) else {
+            coordinator.storedStage = OnboardingStage.api.rawValue
+            return
+        }
+
+        coordinator.storedStage = OnboardingStage.dictionary.rawValue
     }
 
     func goToPreviousLicenseStep(isTranscriptionSetupReady: Bool) {
@@ -234,7 +248,7 @@ final class OnboardingFlowController {
         if coordinator.shouldShowContextAwarenessAfterCurrentExperience {
             goToContextAwarenessStep(isTranscriptionSetupReady: isTranscriptionSetupReady)
         } else if coordinator.isLastExperienceStep {
-            goToTrustStep(isTranscriptionSetupReady: isTranscriptionSetupReady)
+            goToDictionaryStep(isTranscriptionSetupReady: isTranscriptionSetupReady)
         } else {
             moveToExperienceStep(
                 coordinator.normalizedExperienceStepIndex + 1,
@@ -281,7 +295,8 @@ final class OnboardingFlowController {
             goToFirstIncompleteSetupStep(isTranscriptionSetupReady: isTranscriptionSetupReady)
         }
 
-        if (coordinator.stage == .experience || coordinator.stage == .contextAwareness || coordinator.stage == .trust
+        if (coordinator.stage == .experience || coordinator.stage == .contextAwareness
+            || coordinator.stage == .dictionary || coordinator.stage == .trust
             || coordinator.stage == .license)
             && !coordinator.isReadyForExperience(isTranscriptionSetupReady: isTranscriptionSetupReady)
         {

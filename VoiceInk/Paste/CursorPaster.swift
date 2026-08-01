@@ -76,15 +76,27 @@ class CursorPaster {
         return pasteResult
     }
 
+    /// Only these concrete flavors are snapshotted for the post-paste restore.
+    /// Reading every advertised type forces lazily-provided data out of the
+    /// source app, and when the user last copied from Photos, Music, or
+    /// similar, macOS answers with a "VoiceInk would like to access ..."
+    /// permission prompt. Plain text, images, links, and file paths cover
+    /// what a restored clipboard is actually for.
+    private static let preservedPasteboardTypes: Set<NSPasteboard.PasteboardType> = [
+        .string, .rtf, .rtfd, .html, .png, .tiff, .pdf, .fileURL, .URL,
+    ]
+
     private static func snapshotClipboard(from pasteboard: NSPasteboard) -> ClipboardSnapshot {
         (pasteboard.pasteboardItems ?? []).map { item in
             item.types.compactMap { type in
+                guard preservedPasteboardTypes.contains(type) else { return nil }
                 if let data = item.data(forType: type) {
                     return (type, data)
                 }
                 return nil
             }
         }
+        .filter { !$0.isEmpty }
     }
 
     @MainActor

@@ -13,6 +13,7 @@ struct SettingsView: View {
     @EnvironmentObject private var enhancementService: AIEnhancementService
     @ObservedObject private var mediaController = MediaController.shared
     @ObservedObject private var playbackController = PlaybackController.shared
+    @ObservedObject private var selfUpdater = SelfUpdater.shared
     @AppStorage("hasCompletedOnboardingV2") private var hasCompletedOnboardingV2 = true
     @AppStorage("enableAnnouncements") private var enableAnnouncements = true
     @AppStorage("restoreClipboardAfterPaste") private var restoreClipboardAfterPaste = true
@@ -240,12 +241,14 @@ struct SettingsView: View {
 
                 LaunchAtLogin.Toggle(String(localized: "Launch at Login"))
 
-                Toggle(
-                    "Auto-check Updates",
-                    isOn: Binding(
-                        get: { updaterViewModel.automaticallyChecksForUpdates },
-                        set: { updaterViewModel.setAutomaticallyChecksForUpdates($0) }
-                    ))
+                #if !LOCAL_BUILD
+                    Toggle(
+                        "Auto-check Updates",
+                        isOn: Binding(
+                            get: { updaterViewModel.automaticallyChecksForUpdates },
+                            set: { updaterViewModel.setAutomaticallyChecksForUpdates($0) }
+                        ))
+                #endif
 
                 Toggle("Show Announcements", isOn: $enableAnnouncements)
                     .onChange(of: enableAnnouncements) { _, newValue in
@@ -256,16 +259,24 @@ struct SettingsView: View {
                         }
                     }
 
-                HStack {
-                    Button("Check for Updates") {
-                        updaterViewModel.checkForUpdates()
-                    }
-                    .disabled(!updaterViewModel.canCheckForUpdates)
+                #if LOCAL_BUILD
+                    selfUpdateRow
 
                     Button("Reset Onboarding") {
                         showResetOnboardingAlert = true
                     }
-                }
+                #else
+                    HStack {
+                        Button("Check for Updates") {
+                            updaterViewModel.checkForUpdates()
+                        }
+                        .disabled(!updaterViewModel.canCheckForUpdates)
+
+                        Button("Reset Onboarding") {
+                            showResetOnboardingAlert = true
+                        }
+                    }
+                #endif
             }
 
             Section {
@@ -323,6 +334,52 @@ struct SettingsView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Your language change will take full effect after you quit and reopen VoiceInk.")
+        }
+    }
+
+    /// One manual button, no timers: the update check is the only network
+    /// request this build makes without being asked.
+    @ViewBuilder
+    private var selfUpdateRow: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("VoiceInk \(selfUpdater.currentVersion)")
+                Text(selfUpdateStatusText)
+                    .settingsDescription()
+            }
+
+            Spacer()
+
+            switch selfUpdater.state {
+            case .checking, .installing:
+                ProgressView()
+                    .controlSize(.small)
+            case .available(let version):
+                Button("Update to \(version)") {
+                    selfUpdater.installUpdate()
+                }
+            default:
+                Button("Check for Updates") {
+                    selfUpdater.checkForUpdates()
+                }
+            }
+        }
+    }
+
+    private var selfUpdateStatusText: String {
+        switch selfUpdater.state {
+        case .idle:
+            return String(localized: "Checks only when you click. Nothing runs on its own.")
+        case .checking:
+            return String(localized: "Checking GitHub for the latest version...")
+        case .upToDate:
+            return String(localized: "You're up to date.")
+        case .available(let version):
+            return String(localized: "Version \(version) is ready to install.")
+        case .installing:
+            return String(localized: "Updating. VoiceInk will quit and reopen by itself.")
+        case .failed(let message):
+            return message
         }
     }
 
