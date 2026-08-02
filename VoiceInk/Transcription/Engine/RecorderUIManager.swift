@@ -86,11 +86,37 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
         self.engine = engine
         self.recorder = recorder
         setupNotifications()
+
+        // Building the panel's SwiftUI hierarchy is the expensive part of the
+        // first open; doing it shortly after launch (off the interaction
+        // path) makes the first shortcut press as fast as every later one.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            self?.prewarmRecorderPanel()
+        }
     }
 
     // MARK: - Recorder Panel Management
 
+    private func prewarmRecorderPanel() {
+        ensureWindowManager()
+        switch recorderPanelStyle {
+        case .notch: notchWindowManager?.prewarm()
+        case .mini: miniWindowManager?.prewarm()
+        case .minimal: minimalWindowManager?.prewarm()
+        }
+    }
+
     private func showRecorderPanel() {
+        ensureWindowManager()
+        switch recorderPanelStyle {
+        case .notch: notchWindowManager?.show()
+        case .mini: miniWindowManager?.show()
+        case .minimal: minimalWindowManager?.show()
+        }
+    }
+
+    private func ensureWindowManager() {
         guard let engine = engine, let recorder = recorder else { return }
 
         switch recorderPanelStyle {
@@ -117,7 +143,6 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                     }
                 )
             }
-            notchWindowManager?.show()
         case .mini:
             if miniWindowManager == nil {
                 miniWindowManager = MiniWindowManager(
@@ -141,7 +166,6 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                     }
                 )
             }
-            miniWindowManager?.show()
         case .minimal:
             if minimalWindowManager == nil {
                 minimalWindowManager = MinimalWindowManager(
@@ -154,7 +178,6 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
                     }
                 )
             }
-            minimalWindowManager?.show()
         }
     }
 
@@ -170,9 +193,24 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
     }
 
     private func rebuildVisiblePanel(previousStyle: RecorderPanelStyle) {
-        guard isRecorderPanelVisible else { return }
+        guard isRecorderPanelVisible else {
+            // Hidden: swap the prewarmed panel over to the new style so the
+            // next open doesn't pay the first-build cost either.
+            destroyWindowManager(for: previousStyle)
+            prewarmRecorderPanel()
+            return
+        }
 
-        switch previousStyle {
+        destroyWindowManager(for: previousStyle)
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            showRecorderPanel()
+        }
+    }
+
+    private func destroyWindowManager(for style: RecorderPanelStyle) {
+        switch style {
         case .notch:
             notchWindowManager?.destroyWindow()
             notchWindowManager = nil
@@ -182,11 +220,6 @@ class RecorderUIManager: ObservableObject, RecorderPanelPresenting {
         case .minimal:
             minimalWindowManager?.destroyWindow()
             minimalWindowManager = nil
-        }
-
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 50_000_000)
-            showRecorderPanel()
         }
     }
 

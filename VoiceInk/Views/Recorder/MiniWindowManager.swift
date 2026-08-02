@@ -35,6 +35,14 @@ class MiniWindowManager {
         panel?.show()
     }
 
+    /// Builds the panel and its SwiftUI hierarchy without ordering it front.
+    /// Creating the hosting view is the expensive part of the first open
+    /// (~200ms of main-thread work); doing it at launch makes the first Fn
+    /// press as fast as every later one. show() still repositions the panel.
+    func prewarm() {
+        if panel == nil { initializeWindow() }
+    }
+
     func hide() {
         panel?.orderOut(nil)
     }

@@ -46,13 +46,6 @@ struct MinimalFlowingWave: View {
     let color: Color
     let isActive: Bool
 
-    private let frequency: CGFloat = 1.8
-    private let idleAmplitude: CGFloat = 0.02
-    private let phaseShift: CGFloat = -0.14
-    private let numberOfWaves = 5
-    private let primaryLineWidth: CGFloat = 1.6
-    private let secondaryLineWidth: CGFloat = 0.6
-
     @State private var engine = SiriWaveEngine()
 
     /// Stretched across the whole pill, raw meter values read nearly flat at
@@ -65,43 +58,19 @@ struct MinimalFlowingWave: View {
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { context in
-            let state = engine.frame(
+            let frame = engine.frame(
                 meter: boostedMeter,
                 time: context.date.timeIntervalSinceReferenceDate,
-                isActive: isActive,
-                phaseShift: phaseShift,
-                idleAmplitude: idleAmplitude
+                isActive: isActive
             )
             Canvas { canvasContext, size in
-                let mid = size.width / 2
-                let maxAmplitude = size.height / 2 - primaryLineWidth
-
-                for waveIndex in 0..<numberOfWaves {
-                    let progress = 1.0 - CGFloat(waveIndex) / CGFloat(numberOfWaves)
-                    let normedAmplitude = (1.5 * progress - 0.8) * CGFloat(state.amplitude)
-                    let opacityMultiplier = min(1.0, (progress / 3.0 * 2.0) + (1.0 / 3.0))
-
-                    var path = Path()
-                    var x: CGFloat = 0
-                    while x <= size.width {
-                        let scaling = -pow(1 / mid * (x - mid), 2) + 1
-                        let y = scaling * maxAmplitude * normedAmplitude
-                            * sin(2 * .pi * frequency * (x / size.width) + CGFloat(state.phase))
-                            + size.height / 2
-                        if x == 0 {
-                            path.move(to: CGPoint(x: x, y: y))
-                        } else {
-                            path.addLine(to: CGPoint(x: x, y: y))
-                        }
-                        x += 1
-                    }
-
-                    canvasContext.stroke(
-                        path,
-                        with: .color(color.opacity(Double(opacityMultiplier))),
-                        lineWidth: waveIndex == 0 ? primaryLineWidth : secondaryLineWidth
-                    )
-                }
+                SiriRippleRenderer.draw(
+                    in: canvasContext,
+                    size: size,
+                    amplitude: frame.amplitude,
+                    time: frame.time,
+                    color: color
+                )
             }
         }
         .accessibilityHidden(true)

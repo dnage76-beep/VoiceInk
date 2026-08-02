@@ -111,6 +111,13 @@ class MinimalWindowManager {
         panel?.show()
     }
 
+    /// Builds the panel and its SwiftUI hierarchy without ordering it front,
+    /// so the first open skips the expensive hosting-view creation. show()
+    /// still repositions the panel on the current screen.
+    func prewarm() {
+        if panel == nil { initializeWindow() }
+    }
+
     func hide() {
         panel?.orderOut(nil)
     }

@@ -135,7 +135,17 @@ class TranscriptionPipeline {
                     ?? resolvedOutputConfiguration.mode ?? transcriptionConfiguration.mode
             )
 
-            if formattingConfiguration.isTextFormattingEnabled {
+            // Paragraph formatting fights the per-app prompt when AI cleanup
+            // runs: it injects paragraph breaks into the raw transcript that
+            // the model then faithfully preserves (email-like gaps in a
+            // coding chat). It exists for dictations delivered without
+            // enhancement, so only run it there.
+            let enhancementWillRun =
+                resolvedEnhancementConfiguration?.isEnabled == true
+                && resolvedEnhancementConfiguration.map { configuration in
+                    enhancementService?.isConfigured(for: configuration) == true
+                } == true
+            if formattingConfiguration.isTextFormattingEnabled, !enhancementWillRun {
                 text = ParagraphFormatter.format(text)
             }
 
